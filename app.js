@@ -366,6 +366,9 @@ async function refreshLiveData({ quiet = false } = {}) {
       throw new Error(payload.error || "시장 데이터 응답이 비어 있습니다.");
     }
 
+    applyMarketPoint("korea", payload.values.kospi);
+    applyMarketPoint("us", payload.values.nasdaq);
+    applyAsOfDate([payload.values.kospi, payload.values.nasdaq]);
     applyLivePoint("usdKrw", payload.values.usdKrw, (value) => Number(value.toFixed(2)));
     applyLivePoint("dollarIndex", payload.values.dollarIndex, (value) => Number(value.toFixed(2)));
     applyLivePoint("spread10y2y", payload.values.spread10y2y, (value) => `${formatNumber(value, 2)}%`);
@@ -443,6 +446,19 @@ function applyLivePoint(key, point, formatter) {
     source: point.source || "source",
     date: point.date || "",
   };
+}
+
+function applyMarketPoint(marketKey, point) {
+  if (!point || !Number.isFinite(Number(point.value))) return;
+  state.markets[marketKey].currentValue = Number(Number(point.value).toFixed(2));
+}
+
+function applyAsOfDate(points) {
+  const dates = points
+    .map((point) => point?.date)
+    .filter(Boolean)
+    .sort();
+  state.asOfDate = dates.at(-1) || localDateString();
 }
 
 function applyFearGreed(point) {

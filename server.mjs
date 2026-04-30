@@ -91,6 +91,8 @@ async function getMacroData() {
       ok: true,
       updatedAt: new Date().toISOString(),
       values: {
+        kospi: dataPoint(2615.03, "Mock", "2026-04-27"),
+        nasdaq: dataPoint(20177.66, "Mock", "2026-04-27"),
         usdKrw: dataPoint(1471.07, "Mock", "2026-04-27"),
         dollarIndex: dataPoint(98.23, "Mock", "2026-04-27"),
         spread10y2y: dataPoint(0.55, "Mock", "2026-04-27"),
@@ -116,6 +118,8 @@ async function getMacroData() {
   }
 
   const tasks = {
+    kospi: () => fetchYahooQuote("^KS11"),
+    nasdaq: () => fetchYahooQuote("^IXIC"),
     usdKrw: () => fetchYahooQuote("KRW=X"),
     dollarIndex: () => fetchDollarIndex(),
     spread10y2y: () => fetchFredLatest("T10Y2Y"),
