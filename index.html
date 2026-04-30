@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>지수 구간 계산</title>
+    <script>
+      (() => {
+        const savedTheme = localStorage.getItem("index-range-calculator-theme");
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.dataset.theme =
+          savedTheme === "dark" || savedTheme === "light" ? savedTheme : prefersDark ? "dark" : "light";
+      })();
+    </script>
+    <link rel="stylesheet" href="./styles.css" />
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <div class="top-nav">
+        <div class="date-badge top-timestamp" data-date-badge aria-live="polite"></div>
+        <button class="theme-button" type="button" data-action="toggle-theme" data-theme-toggle>
+          <span class="theme-bulb" aria-hidden="true"></span>
+          <span class="theme-label">켜짐</span>
+        </button>
+      </div>
+
+      <main>
+        <section class="view is-active" id="thermometer-view">
+          <section class="info-grid is-compact" aria-label="기타 정보">
+            <article class="info-panel">
+              <div class="info-head">
+                <div>
+                  <p class="eyebrow">Macro</p>
+                  <h2>기타 정보</h2>
+                </div>
+                <div class="info-actions">
+                  <button class="refresh-button info-refresh-button" type="button" data-action="refresh-data">
+                    새로고침
+                  </button>
+                </div>
+              </div>
+              <dl class="macro-list" data-macro-list></dl>
+            </article>
+          </section>
+
+          <section class="table-section" aria-label="지수 온도계 표">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Thermometer</p>
+                <h2>지수 온도계</h2>
+              </div>
+            </div>
+            <div class="thermometer-stack" data-market-thermometers></div>
+          </section>
+        </section>
+
+      </main>
+    </div>
+
+    <dialog class="settings-dialog" data-settings-dialog>
+      <form method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Settings</p>
+            <h2 data-settings-title>기준 설정</h2>
+          </div>
+          <button class="icon-button" type="submit" aria-label="닫기">×</button>
+        </div>
+        <div class="settings-grid">
+          <article class="settings-market" data-settings-market="korea">
+            <h3>한국 시장 KOSPI</h3>
+            <div class="market-fields">
+              <label class="field">
+                <span>전저점 날짜</span>
+                <input type="date" data-bind="markets.korea.lowDate" />
+              </label>
+              <label class="field">
+                <span>전저점 포인트</span>
+                <input type="number" step="0.01" data-bind="markets.korea.lowValue" />
+              </label>
+              <label class="field">
+                <span>전고점 날짜</span>
+                <input type="date" data-bind="markets.korea.highDate" />
+              </label>
+              <label class="field">
+                <span>전고점 포인트</span>
+                <input type="number" step="0.01" data-bind="markets.korea.highValue" />
+              </label>
+            </div>
+          </article>
+          <article class="settings-market" data-settings-market="us">
+            <h3>미국 시장 NASDAQ</h3>
+            <div class="market-fields">
+              <label class="field">
+                <span>전저점 날짜</span>
+                <input type="date" data-bind="markets.us.lowDate" />
+              </label>
+              <label class="field">
+                <span>전저점 포인트</span>
+                <input type="number" step="0.01" data-bind="markets.us.lowValue" />
+              </label>
+              <label class="field">
+                <span>전고점 날짜</span>
+                <input type="date" data-bind="markets.us.highDate" />
+              </label>
+              <label class="field">
+                <span>전고점 포인트</span>
+                <input type="number" step="0.01" data-bind="markets.us.highValue" />
+              </label>
+            </div>
+          </article>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

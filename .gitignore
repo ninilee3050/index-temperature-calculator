@@ -1,0 +1,6 @@
+node_modules/
+verification/
+server.log
+server.err
+server.port
+*.tmp
