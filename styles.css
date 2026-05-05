@@ -1543,13 +1543,70 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   }
 
   .thermo-device {
-    overflow-x: auto;
-    grid-template-columns: minmax(620px, 1fr);
+    overflow-x: hidden;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 4px 8px;
   }
 
   .thermo-device-head,
   .thermo-group {
     min-width: 0;
+    grid-template-columns:
+      minmax(72px, 0.72fr)
+      38px
+      38px
+      62px
+      minmax(82px, 0.64fr);
+  }
+
+  .thermo-device-head {
+    font-size: 10px;
+  }
+
+  .thermo-device-head span,
+  .thermo-group > .thermo-category,
+  .thermo-row > div {
+    min-height: 29px;
+    padding: 4px 3px;
+  }
+
+  .thermo-category {
+    border-left-width: 5px;
+    font-size: 12px;
+    line-height: 1.25;
+    word-break: keep-all;
+  }
+
+  .thermo-subcategory {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .thermo-rate,
+  .thermo-point {
+    font-size: 11px;
+  }
+
+  .thermo-point {
+    letter-spacing: 0;
+  }
+
+  .thermo-needle-cell {
+    gap: 2px;
+  }
+
+  .thermo-needle-cell::before,
+  .thermo-needle-cell.is-zero::before {
+    inset: 5px 3px;
+  }
+
+  .mercury-label,
+  .peak-label,
+  .anchor-note,
+  .zero-line-label {
+    min-height: 20px;
+    padding: 0 4px;
+    font-size: 9px;
   }
 
   .section-head,
