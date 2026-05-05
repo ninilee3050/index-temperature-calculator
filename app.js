@@ -40,6 +40,10 @@ const defaultState = {
       lowValue: 2134.77,
       highDate: "2021-06-25",
       highValue: 3316.08,
+      risePeakReturn: null,
+      risePeakDate: null,
+      fallPeakReturn: null,
+      fallPeakDate: null,
     },
     us: {
       currentValue: 20177.66,
@@ -47,6 +51,10 @@ const defaultState = {
       lowValue: 10088.83,
       highDate: "2021-11-22",
       highValue: 16212.23,
+      risePeakReturn: null,
+      risePeakDate: null,
+      fallPeakReturn: null,
+      fallPeakDate: null,
     },
   },
 };
@@ -237,6 +245,9 @@ function setupActions() {
     const input = event.target.closest("[data-bind]");
     if (!input) return;
     setByPath(state, input.dataset.bind, readInput(input));
+    if (isMarketBasisPath(input.dataset.bind)) {
+      resetMarketExtremes(marketKeyFromPath(input.dataset.bind));
+    }
     saveState();
     renderAll({ keepFocus: input.dataset.bind });
   });
@@ -450,7 +461,9 @@ function applyLivePoint(key, point, formatter) {
 
 function applyMarketPoint(marketKey, point) {
   if (!point || !Number.isFinite(Number(point.value))) return;
-  state.markets[marketKey].currentValue = Number(Number(point.value).toFixed(2));
+  const market = state.markets[marketKey];
+  market.currentValue = Number(Number(point.value).toFixed(2));
+  recordMarketExtremes(market, point.date || state.asOfDate);
 }
 
 function applyAsOfDate(points) {
@@ -509,7 +522,9 @@ function renderMarketThermometer(meta) {
   const market = state.markets[meta.key];
   const riseNeedle = getRiseNeedle(market);
   const fallNeedle = getFallNeedle(market);
-  const rows = buildThermometerRows(market, riseNeedle.key, fallNeedle.key);
+  const risePeakNeedle = getRisePeakNeedle(market);
+  const fallPeakNeedle = getFallPeakNeedle(market);
+  const rows = buildThermometerRows(market, riseNeedle.key, fallNeedle.key, risePeakNeedle.key, fallPeakNeedle.key);
   return `
     <article class="thermo-card">
       <div class="thermo-card-head">
@@ -542,11 +557,17 @@ function renderMarketThermometer(meta) {
   `;
 }
 
-function buildThermometerRows(market, riseNeedleKey, fallNeedleKey) {
+function buildThermometerRows(market, riseNeedleKey, fallNeedleKey, risePeakNeedleKey, fallPeakNeedleKey) {
   const lowReturn = calcLowReturn(market);
   const highReturn = calcHighReturn(market);
+  const risePeakReturn = getRisePeakReturn(market);
+  const fallPeakReturn = getFallPeakReturn(market);
   const riseLabel = `${monthDiff(market.lowDate, state.asOfDate)}개월 · ${truncatePercent(lowReturn)}%`;
   const fallLabel = `${monthDiff(market.highDate, state.asOfDate)}개월 · ${truncatePercent(Math.min(highReturn, 0))}%`;
+  const risePeakLabel = `최고 ${truncatePercent(risePeakReturn)}%`;
+  const fallPeakLabel = `최저 ${truncatePercent(fallPeakReturn)}%`;
+  const risePeakTitle = peakTitle("최고", market.risePeakDate);
+  const fallPeakTitle = peakTitle("최저", market.fallPeakDate);
   return rangeGroups
     .map((group) => {
       const groupRows = group.rows
@@ -560,6 +581,14 @@ function buildThermometerRows(market, riseNeedleKey, fallNeedleKey) {
             (kind === "rise" && lowReturn >= row.rate) || (kind === "riseBase" && lowReturn > 0);
           const isFallFill =
             (kind === "fall" && highReturn <= row.rate) || (kind === "fallBase" && highReturn < 0);
+          const isRisePeak =
+            !isRiseFill &&
+            ((kind === "rise" && risePeakReturn >= row.rate) || (kind === "riseBase" && risePeakReturn > 0));
+          const isFallPeak =
+            !isFallFill &&
+            ((kind === "fall" && fallPeakReturn <= row.rate) || (kind === "fallBase" && fallPeakReturn < 0));
+          const isRisePeakNeedle = isRisePeak && key === risePeakNeedleKey;
+          const isFallPeakNeedle = isFallPeak && key === fallPeakNeedleKey;
           const isZero = kind === "riseBase" || kind === "fallBase";
           const baseClass = isZero ? `range-zero-${kind === "riseBase" ? "rise" : "fall"}` : "";
           return `
@@ -571,9 +600,13 @@ function buildThermometerRows(market, riseNeedleKey, fallNeedleKey) {
               <div class="thermo-point">${formatNumber(result.target)}</div>
               <div class="thermo-needle-cell ${isRiseFill ? "is-rise-filled" : ""} ${
               isFallFill ? "is-fall-filled" : ""
+            } ${isRisePeak ? "is-rise-peak" : ""} ${
+              isFallPeak ? "is-fall-peak" : ""
             } ${isZero ? "is-zero" : ""}">
                 ${isRiseNeedle ? `<span class="mercury-label rise">${riseLabel}</span>` : ""}
                 ${isFallNeedle ? `<span class="mercury-label fall">${fallLabel}</span>` : ""}
+                ${isRisePeakNeedle ? `<span class="peak-label rise" title="${risePeakTitle}">${risePeakLabel}</span>` : ""}
+                ${isFallPeakNeedle ? `<span class="peak-label fall" title="${fallPeakTitle}">${fallPeakLabel}</span>` : ""}
               </div>
             </div>
           `;
@@ -630,6 +663,50 @@ function getRiseNeedle(market) {
 
 function getFallNeedle(market) {
   const fall = calcHighReturn(market);
+  if (fall >= 0) {
+    return getBaseNeedle("fallBase", "하락 위험 없음");
+  }
+  const fallGroups = rangeGroups.filter((group) => group.kind === "fall");
+  const rows = fallGroups.flatMap((group) =>
+    group.rows.map((row) => {
+      const kind = row.kind || group.kind;
+      return { group, row, key: thermometerRowKey(kind, row) };
+    }),
+  );
+  const sorted = [...rows].sort((a, b) => b.row.rate - a.row.rate);
+  const selected = sorted.filter((item) => fall <= item.row.rate).at(-1) || sorted.at(-1);
+  return {
+    ...selected,
+    zone: selected.group.label,
+  };
+}
+
+function getRisePeakNeedle(market) {
+  return getRiseNeedleByReturn(getRisePeakReturn(market));
+}
+
+function getFallPeakNeedle(market) {
+  return getFallNeedleByReturn(getFallPeakReturn(market));
+}
+
+function getRiseNeedleByReturn(rise) {
+  const riseGroups = rangeGroups.filter((group) => group.kind === "rise");
+  const rows = riseGroups.flatMap((group) =>
+    group.rows.map((row) => {
+      const kind = row.kind || group.kind;
+      return { group, row, key: thermometerRowKey(kind, row) };
+    }),
+  );
+  const sorted = [...rows].sort((a, b) => a.row.rate - b.row.rate);
+  const selected = sorted.findLast((item) => rise >= item.row.rate);
+  if (!selected) return getBaseNeedle("riseBase", "상승 기준");
+  return {
+    ...selected,
+    zone: selected.group.label,
+  };
+}
+
+function getFallNeedleByReturn(fall) {
   if (fall >= 0) {
     return getBaseNeedle("fallBase", "하락 위험 없음");
   }
@@ -890,6 +967,48 @@ function calcHighReturn(market) {
   return safeDivide(market.currentValue - market.highValue, market.highValue);
 }
 
+function getRisePeakReturn(market) {
+  const value = Number(market.risePeakReturn);
+  return Number.isFinite(value) ? value : Math.max(calcLowReturn(market), 0);
+}
+
+function getFallPeakReturn(market) {
+  const value = Number(market.fallPeakReturn);
+  return Number.isFinite(value) ? value : Math.min(calcHighReturn(market), 0);
+}
+
+function recordMarketExtremes(market, date = state.asOfDate || localDateString()) {
+  const currentRise = Math.max(calcLowReturn(market), 0);
+  const currentFall = Math.min(calcHighReturn(market), 0);
+  if (currentRise >= getRisePeakReturn(market)) {
+    market.risePeakReturn = currentRise;
+    market.risePeakDate = date;
+  }
+  if (currentFall <= getFallPeakReturn(market)) {
+    market.fallPeakReturn = currentFall;
+    market.fallPeakDate = date;
+  }
+  market.risePeakDate ||= date;
+  market.fallPeakDate ||= date;
+}
+
+function resetMarketExtremes(marketKey) {
+  const market = state.markets[marketKey];
+  if (!market) return;
+  market.risePeakReturn = Math.max(calcLowReturn(market), 0);
+  market.risePeakDate = state.asOfDate || localDateString();
+  market.fallPeakReturn = Math.min(calcHighReturn(market), 0);
+  market.fallPeakDate = state.asOfDate || localDateString();
+}
+
+function isMarketBasisPath(path) {
+  return /^markets\.[^.]+\.(lowDate|lowValue|highDate|highValue)$/.test(path);
+}
+
+function marketKeyFromPath(path) {
+  return path.split(".")[1];
+}
+
 function safeDivide(a, b) {
   if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) return 0;
   return a / b;
@@ -902,6 +1021,12 @@ function monthDiff(start, end) {
   let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
   if (b.getDate() < a.getDate()) months -= 1;
   return Math.max(months, 0);
+}
+
+function peakTitle(label, date) {
+  if (!date) return `${label} 기록일 없음`;
+  const months = monthDiff(date, state.asOfDate);
+  return `${date} 기록 · 현재 기준 ${months}개월 전`;
 }
 
 function parseDate(value) {
@@ -1003,6 +1128,7 @@ function normalizeState(next) {
       next.macro[key] = "-";
     }
   });
+  Object.values(next.markets || {}).forEach(recordMarketExtremes);
   return next;
 }
 
