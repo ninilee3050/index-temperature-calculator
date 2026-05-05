@@ -42,7 +42,7 @@ KOSPI와 NASDAQ의 전저점·전고점을 기준으로 현재 지수 위치를 
 - KOSPI / NASDAQ: Yahoo Finance
 - 달러 실시간 환율: Yahoo Finance
 - 달러 지수: Yahoo Finance, 필요 시 Stooq 보조 사용
-- 미국 장단기 금리차 10Y-2Y, 10Y-3M: Yahoo Finance 금리 데이터를 이용해 직접 계산
+- 미국 장단기 금리차 10Y-2Y, 10Y-3M: FRED 공식 스프레드 시계열
 - CNN 공포탐욕지수: CNN Fear & Greed
 - 장단기 금리차 양전 구간 분석: FRED 데이터 사용
 
