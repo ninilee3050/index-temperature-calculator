@@ -42,7 +42,7 @@ KOSPI와 NASDAQ의 전저점·전고점을 기준으로 현재 지수 위치를 
 - KOSPI / NASDAQ: Yahoo Finance
 - 달러 실시간 환율: Yahoo Finance
 - 달러 지수: Yahoo Finance, 필요 시 Stooq 보조 사용
-- 미국 장단기 금리차 10Y-2Y, 10Y-3M: FRED 공식 스프레드 시계열
+- 미국 장단기 금리차 10Y-2Y, 10Y-3M: FRED 공식 스프레드 시계열 우선 사용, 실패 시 Yahoo Finance 보조 계산
 - CNN 공포탐욕지수: CNN Fear & Greed
 - 장단기 금리차 양전 구간 분석: FRED 데이터 사용
 
@@ -97,6 +97,12 @@ Vercel에 GitHub 저장소를 연결하면 아래 흐름으로 동작합니다.
 - 외부 공개 데이터 소스가 일시적으로 막히면 일부 지표가 표시되지 않을 수 있습니다.
 
 URL을 아는 사람은 접속할 수 있으므로 완전한 비공개 앱은 아닙니다. 혼자 쓰는 용도라면 주소를 공유하지 않는 방식으로 충분히 가볍게 운영할 수 있습니다.
+
+## 선택 설정: FRED API 키
+
+Vercel 서버에서 FRED 공개 CSV가 느리거나 막히는 경우가 있을 수 있습니다. 장단기 금리차를 FRED 공식값으로 더 안정적으로 고정하려면 Vercel 환경 변수에 `FRED_API_KEY`를 추가할 수 있습니다.
+
+FRED API 키가 없을 때도 앱은 동작하지만, FRED 요청이 실패하면 Yahoo Finance 금리 데이터를 이용한 보조 계산값이 표시될 수 있습니다.
 
 ## 로컬 실행 조건
 
