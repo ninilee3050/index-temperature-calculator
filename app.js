@@ -202,6 +202,7 @@ let state = normalizeState(loadState());
 document.addEventListener("DOMContentLoaded", () => {
   setupTheme();
   setupActions();
+  setupMobileTopNav();
   setupServerHeartbeat();
   renderAll();
   refreshLiveData({ quiet: true });
@@ -313,6 +314,29 @@ function setupTheme() {
   document.documentElement.dataset.theme = hasSavedTheme() ? savedTheme : systemTheme.matches ? "dark" : "light";
   updateThemeButton();
   systemTheme.addEventListener("change", applySystemTheme);
+}
+
+function setupMobileTopNav() {
+  const topNav = document.querySelector(".top-nav");
+  if (!topNav) return;
+  const mobileQuery = window.matchMedia("(max-width: 720px)");
+  let lastY = window.scrollY;
+
+  const update = () => {
+    if (!mobileQuery.matches) {
+      topNav.classList.remove("is-hidden");
+      return;
+    }
+    const currentY = window.scrollY;
+    const isScrollingDown = currentY > lastY + 6;
+    const isNearTop = currentY < 24;
+    topNav.classList.toggle("is-hidden", isScrollingDown && !isNearTop);
+    lastY = currentY;
+  };
+
+  window.addEventListener("scroll", update, { passive: true });
+  mobileQuery.addEventListener("change", update);
+  update();
 }
 
 function toggleTheme() {

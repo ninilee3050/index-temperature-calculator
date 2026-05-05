@@ -219,6 +219,9 @@ button {
   justify-content: center;
   gap: 16px;
   margin-bottom: 16px;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
 }
 
 .top-timestamp {
@@ -1506,6 +1509,12 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
     justify-items: center;
     align-items: center;
     flex-direction: row;
+  }
+
+  .top-nav.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-120%);
   }
 
   .top-timestamp {
