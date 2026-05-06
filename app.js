@@ -320,18 +320,13 @@ function setupMobileTopNav() {
   const topNav = document.querySelector(".top-nav");
   if (!topNav) return;
   const mobileQuery = window.matchMedia("(max-width: 720px)");
-  let lastY = window.scrollY;
 
   const update = () => {
     if (!mobileQuery.matches) {
       topNav.classList.remove("is-hidden");
       return;
     }
-    const currentY = window.scrollY;
-    const isScrollingDown = currentY > lastY + 6;
-    const isNearTop = currentY < 24;
-    topNav.classList.toggle("is-hidden", isScrollingDown && !isNearTop);
-    lastY = currentY;
+    topNav.classList.toggle("is-hidden", window.scrollY > 32);
   };
 
   window.addEventListener("scroll", update, { passive: true });
