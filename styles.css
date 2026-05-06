@@ -1566,42 +1566,42 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   .thermo-group {
     min-width: 0;
     grid-template-columns:
-      minmax(58px, 0.62fr)
-      28px
-      32px
-      76px
-      minmax(68px, 0.62fr);
+      minmax(0, 0.9fr)
+      minmax(0, 0.42fr)
+      minmax(0, 0.48fr)
+      minmax(clamp(70px, 21vw, 88px), 1.12fr)
+      minmax(clamp(62px, 19vw, 84px), 1fr);
   }
 
   .thermo-device-head {
-    font-size: 10px;
+    font-size: clamp(9px, 2.5vw, 10px);
   }
 
   .thermo-device-head span,
   .thermo-group > .thermo-category,
   .thermo-row > div {
-    min-height: 29px;
-    padding: 4px 3px;
+    min-height: clamp(28px, 7.2vw, 32px);
+    padding: clamp(3px, 1vw, 4px) clamp(2px, 0.8vw, 4px);
   }
 
   .thermo-category {
-    border-left-width: 5px;
-    font-size: 12px;
+    border-left-width: clamp(4px, 1.3vw, 5px);
+    font-size: clamp(10px, 3vw, 12px);
     line-height: 1.25;
     word-break: keep-all;
   }
 
   .thermo-subcategory {
-    font-size: 9px;
+    font-size: clamp(8px, 2.35vw, 10px);
     line-height: 1.2;
   }
 
   .thermo-rate {
-    font-size: 11px;
+    font-size: clamp(9px, 2.8vw, 11px);
   }
 
   .thermo-point {
-    font-size: 10px;
+    font-size: clamp(9px, 2.55vw, 11px);
     letter-spacing: 0;
   }
 
@@ -1618,9 +1618,9 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   .peak-label,
   .anchor-note,
   .zero-line-label {
-    min-height: 20px;
-    padding: 0 4px;
-    font-size: 9px;
+    min-height: clamp(18px, 5vw, 21px);
+    padding: 0 clamp(3px, 1vw, 5px);
+    font-size: clamp(8px, 2.35vw, 10px);
   }
 
   .section-head,
