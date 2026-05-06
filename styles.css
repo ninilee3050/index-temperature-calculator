@@ -1566,11 +1566,11 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   .thermo-group {
     min-width: 0;
     grid-template-columns:
-      minmax(64px, 0.68fr)
-      34px
-      34px
-      64px
-      minmax(70px, 0.66fr);
+      minmax(58px, 0.62fr)
+      28px
+      32px
+      76px
+      minmax(68px, 0.62fr);
   }
 
   .thermo-device-head {
@@ -1592,16 +1592,16 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   }
 
   .thermo-subcategory {
-    font-size: 10px;
+    font-size: 9px;
     line-height: 1.2;
   }
 
-  .thermo-rate,
-  .thermo-point {
+  .thermo-rate {
     font-size: 11px;
   }
 
   .thermo-point {
+    font-size: 10px;
     letter-spacing: 0;
   }
 
