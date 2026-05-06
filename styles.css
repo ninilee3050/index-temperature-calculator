@@ -1568,8 +1568,8 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
     grid-template-columns:
       minmax(0, 0.92fr)
       minmax(0, 0.46fr)
-      minmax(0, 0.42fr)
-      minmax(0, 1.16fr)
+      minmax(0, 0.56fr)
+      minmax(0, 1.06fr)
       minmax(0, 1.04fr);
   }
 
