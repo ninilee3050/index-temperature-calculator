@@ -1491,7 +1491,7 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
 
 @media (max-width: 720px) {
   .app-shell {
-    width: min(100% - 20px, 1240px);
+    width: min(100% - 10px, 1240px);
     padding-top: 18px;
   }
 
@@ -1544,7 +1544,7 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
 
   .thermometer-stack {
     grid-template-columns: 1fr;
-    padding: 10px;
+    padding: 8px 0;
   }
 
   .thermo-card-head,
@@ -1555,18 +1555,18 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   .thermo-device {
     overflow-x: hidden;
     grid-template-columns: minmax(0, 1fr);
-    padding: 0 4px 8px;
+    padding: 0 2px 8px;
   }
 
   .thermo-device-head,
   .thermo-group {
     min-width: 0;
     grid-template-columns:
-      minmax(72px, 0.72fr)
-      38px
-      38px
-      62px
-      minmax(82px, 0.64fr);
+      minmax(64px, 0.68fr)
+      34px
+      34px
+      58px
+      minmax(76px, 0.7fr);
   }
 
   .thermo-device-head {
