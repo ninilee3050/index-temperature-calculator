@@ -1565,7 +1565,12 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   .thermo-device-head,
   .thermo-group {
     min-width: 0;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns:
+      minmax(0, 0.92fr)
+      minmax(0, 0.46fr)
+      minmax(0, 0.42fr)
+      minmax(0, 1.16fr)
+      minmax(0, 1.04fr);
   }
 
   .thermo-device-head {
