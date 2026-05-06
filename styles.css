@@ -1566,11 +1566,11 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   .thermo-group {
     min-width: 0;
     grid-template-columns:
-      minmax(0, 0.92fr)
-      minmax(0, 0.46fr)
-      minmax(0, 0.56fr)
-      minmax(0, 1.06fr)
-      minmax(0, 1.04fr);
+      minmax(0, 1.08fr)
+      minmax(0, 0.68fr)
+      minmax(0, 0.48fr)
+      minmax(0, 0.82fr)
+      minmax(0, 1fr);
   }
 
   .thermo-device-head {
@@ -1603,7 +1603,7 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   .thermo-point {
     font-size: clamp(9px, 2.8vw, 11px);
     letter-spacing: 0;
-    text-align: center;
+    text-align: right;
   }
 
   .thermo-needle-cell {
