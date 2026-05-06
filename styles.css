@@ -233,6 +233,12 @@ button {
   justify-self: start;
 }
 
+.top-nav.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-120%);
+}
+
 .theme-button {
   display: inline-flex;
   align-items: center;
@@ -1514,12 +1520,6 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
     justify-items: center;
     align-items: center;
     flex-direction: row;
-  }
-
-  .top-nav.is-hidden {
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(-120%);
   }
 
   .top-timestamp {

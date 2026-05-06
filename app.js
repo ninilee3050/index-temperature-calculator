@@ -202,7 +202,7 @@ let state = normalizeState(loadState());
 document.addEventListener("DOMContentLoaded", () => {
   setupTheme();
   setupActions();
-  setupMobileTopNav();
+  setupAutoHideTopNav();
   setupServerHeartbeat();
   renderAll();
   refreshLiveData({ quiet: true });
@@ -316,21 +316,15 @@ function setupTheme() {
   systemTheme.addEventListener("change", applySystemTheme);
 }
 
-function setupMobileTopNav() {
+function setupAutoHideTopNav() {
   const topNav = document.querySelector(".top-nav");
   if (!topNav) return;
-  const mobileQuery = window.matchMedia("(max-width: 720px)");
 
   const update = () => {
-    if (!mobileQuery.matches) {
-      topNav.classList.remove("is-hidden");
-      return;
-    }
     topNav.classList.toggle("is-hidden", window.scrollY > 32);
   };
 
   window.addEventListener("scroll", update, { passive: true });
-  mobileQuery.addEventListener("change", update);
   update();
 }
 
