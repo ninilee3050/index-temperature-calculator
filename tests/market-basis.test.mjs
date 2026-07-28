@@ -69,6 +69,7 @@ test("historical faint markers use the lowest point after the high and highest p
     row("2021-03-31", 100, 70, 75),
     row("2021-04-30", 95, 72, 90),
     row("2021-05-31", 150, 100, 145),
+    row("2021-06-30", 0, 0, 0),
   ];
 
   assert.deepEqual(

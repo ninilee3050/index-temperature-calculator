@@ -281,6 +281,11 @@ function setupActions() {
     const button = event.target.closest("[data-action]");
     if (!button) return;
 
+    if (button.dataset.action === "show-peak-info") {
+      showToast(button.dataset.message, 4000);
+      return;
+    }
+
     if (button.dataset.action === "reset") {
       state = clone(defaultState);
       saveState();
@@ -649,12 +654,13 @@ function buildThermometerRows(market, riseNeedleKey, fallNeedleKey, risePeakNeed
   const highReturn = calcHighReturn(market);
   const risePeakReturn = getRisePeakReturn(market);
   const fallPeakReturn = getFallPeakReturn(market);
+  const currentPointLabel = `현재 ${formatNumber(market.currentValue)}`;
   const riseLabel = `${monthDiff(market.lowDate, state.asOfDate)}개월 · ${truncatePercent(lowReturn)}%`;
   const fallLabel = `${monthDiff(market.highDate, state.asOfDate)}개월 · ${truncatePercent(Math.min(highReturn, 0))}%`;
   const risePeakLabel = `최고 ${truncatePercent(risePeakReturn)}%`;
   const fallPeakLabel = `최저 ${truncatePercent(fallPeakReturn)}%`;
-  const risePeakTitle = peakTitle("최고", market.risePeakDate);
-  const fallPeakTitle = peakTitle("최저", market.fallPeakDate);
+  const risePeakTitle = peakTitle("최고", market.risePeakDate, market.risePeakValue);
+  const fallPeakTitle = peakTitle("최저", market.fallPeakDate, market.fallPeakValue);
   return rangeGroups
     .map((group) => {
       const groupRows = group.rows
@@ -690,10 +696,26 @@ function buildThermometerRows(market, riseNeedleKey, fallNeedleKey, risePeakNeed
             } ${isRisePeak ? "is-rise-peak" : ""} ${
               isFallPeak ? "is-fall-peak" : ""
             } ${isZero ? "is-zero" : ""}">
-                ${isRiseNeedle ? `<span class="mercury-label rise">${riseLabel}</span>` : ""}
-                ${isFallNeedle ? `<span class="mercury-label fall">${fallLabel}</span>` : ""}
-                ${isRisePeakNeedle ? `<span class="peak-label rise" title="${risePeakTitle}">${risePeakLabel}</span>` : ""}
-                ${isFallPeakNeedle ? `<span class="peak-label fall" title="${fallPeakTitle}">${fallPeakLabel}</span>` : ""}
+                ${
+                  isRiseNeedle
+                    ? `<span class="mercury-label rise"><span>${currentPointLabel}</span><span>${riseLabel}</span></span>`
+                    : ""
+                }
+                ${
+                  isFallNeedle
+                    ? `<span class="mercury-label fall"><span>${currentPointLabel}</span><span>${fallLabel}</span></span>`
+                    : ""
+                }
+                ${
+                  isRisePeakNeedle
+                    ? `<button type="button" class="peak-label rise" title="${risePeakTitle}" aria-label="${risePeakTitle}" data-action="show-peak-info" data-message="${risePeakTitle}">${risePeakLabel}</button>`
+                    : ""
+                }
+                ${
+                  isFallPeakNeedle
+                    ? `<button type="button" class="peak-label fall" title="${fallPeakTitle}" aria-label="${fallPeakTitle}" data-action="show-peak-info" data-message="${fallPeakTitle}">${fallPeakLabel}</button>`
+                    : ""
+                }
               </div>
             </div>
           `;
@@ -1142,10 +1164,11 @@ function monthDiff(start, end) {
   return Math.max(months, 0);
 }
 
-function peakTitle(label, date) {
+function peakTitle(label, date, value) {
   if (!date) return `${label} 기록일 없음`;
   const months = monthDiff(date, state.asOfDate);
-  return `${date} 기록 · 현재 기준 ${months}개월 전`;
+  const point = Number.isFinite(Number(value)) ? `${formatNumber(value)} · ` : "";
+  return `${label} ${point}${date} · ${months}개월 전`;
 }
 
 function parseDate(value) {
@@ -1280,12 +1303,12 @@ function localDateString() {
   return date.toISOString().slice(0, 10);
 }
 
-function showToast(message) {
+function showToast(message, duration = 2200) {
   const previous = document.querySelector(".export-toast");
   previous?.remove();
   const toast = document.createElement("div");
   toast.className = "export-toast";
   toast.textContent = message;
   document.body.appendChild(toast);
-  window.setTimeout(() => toast.remove(), 2200);
+  window.setTimeout(() => toast.remove(), duration);
 }

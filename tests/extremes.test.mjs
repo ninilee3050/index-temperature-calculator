@@ -37,6 +37,34 @@ test("rise thermometer uses ten-percent intervals", () => {
   }
 });
 
+test("current needle shows its exact index point", () => {
+  const rows = runScenario(`() => {
+    state.asOfDate = "2026-07-28";
+    const market = {
+      currentValue: 6023.66,
+      lowDate: "2022-09-30",
+      lowValue: 2134.77,
+      highDate: "2021-06-25",
+      highValue: 3316.08,
+      risePeakValue: 9385.59,
+      fallPeakValue: 2134.77,
+      risePeakDate: "2026-06-19",
+      fallPeakDate: "2022-09-30",
+    };
+    return buildThermometerRows(
+      market,
+      getRiseNeedle(market).key,
+      getFallNeedle(market).key,
+      getRisePeakNeedle(market).key,
+      getFallPeakNeedle(market).key,
+    );
+  }`);
+
+  assert.match(rows, /현재 6,023\.66/);
+  assert.match(rows, /data-action="show-peak-info"/);
+  assert.match(rows, /최고 9,385\.59 · 2026-06-19 · 1개월 전/);
+});
+
 test("changing a basis keeps the recorded peak point and date", () => {
   const result = runScenario(`() => {
     const market = {
