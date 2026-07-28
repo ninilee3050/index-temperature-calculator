@@ -71,9 +71,9 @@ test("market header shows the exact index point without crowding the needle", ()
       highDate: "2021-06-25",
       highValue: 3316.08,
       risePeakValue: 9385.59,
-      fallPeakValue: 2134.77,
+      fallPeakValue: 5900,
       risePeakDate: "2026-06-19",
-      fallPeakDate: "2022-09-30",
+      fallPeakDate: "2026-07-24",
     };
     state.markets.korea = market;
     const rows = buildThermometerRows(
@@ -83,13 +83,22 @@ test("market header shows the exact index point without crowding the needle", ()
       getRisePeakNeedle(market).key,
       getFallPeakNeedle(market).key,
     );
-    return { card: renderMarketThermometer(marketMeta[0]), rows };
+    return {
+      card: renderMarketThermometer(marketMeta[0]),
+      rows,
+      drawdown: calcHighReturn(market),
+      minusThirtyPoint: calculateRangeCell({ rate: -0.3 }, "fall", market).target,
+    };
   }`);
 
   assert.match(result.card, /class="market-current-point"/);
   assert.match(result.card, /<strong>6,023\.66<\/strong>/);
   assert.doesNotMatch(result.rows, /현재 6,023\.66/);
   assert.match(result.rows, /45개월 · 182%/);
+  assert.match(result.rows, /1개월 · -35%/);
+  assert.match(result.rows, /최근 최고점/);
+  assert.ok(Math.abs(result.drawdown - (6023.66 / 9385.59 - 1)) < 1e-12);
+  assert.ok(Math.abs(result.minusThirtyPoint - 6569.913) < 1e-9);
   assert.match(result.rows, /data-action="show-peak-info"/);
   assert.match(result.rows, /최고 9,385\.59 · 2026-06-19 · 1개월 전/);
 });
@@ -119,7 +128,7 @@ test("changing a basis keeps the recorded peak point and date", () => {
   assert.equal(result.risePeakReturn, 0.75);
   assert.equal(result.fallPeakValue, 110);
   assert.equal(result.fallPeakDate, "2026-01-03");
-  assert.equal(result.fallPeakReturn, -0.3125);
+  assert.equal(result.fallPeakReturn, -0.21428571428571427);
 });
 
 test("legacy percentage records migrate to absolute points before a basis edit", () => {
@@ -143,8 +152,9 @@ test("legacy percentage records migrate to absolute points before a basis edit",
 
   assert.equal(result.risePeakValue, 140);
   assert.equal(result.risePeakReturn, 0.75);
-  assert.equal(result.fallPeakValue, 120);
+  assert.equal(result.fallPeakValue, 112);
   assert.equal(result.fallPeakDate, "2026-01-03");
+  assert.equal(result.fallPeakReturn, -0.2);
 });
 
 test("new market data automatically updates only genuine point extremes", () => {
@@ -209,14 +219,14 @@ test("automatic basis applies Yahoo historical extrema to the faint markers", ()
       lowValue: 2134.77,
       risePeakDate: "2026-06-19",
       risePeakValue: 9385.59,
-      fallPeakDate: "2022-09-30",
-      fallPeakValue: 2134.77,
+      fallPeakDate: "2026-07-24",
+      fallPeakValue: 5900,
     });
     return state.markets.korea;
   }`);
 
   assert.equal(result.risePeakDate, "2026-06-19");
   assert.equal(result.risePeakValue, 9385.59);
-  assert.equal(result.fallPeakDate, "2022-09-30");
-  assert.equal(result.fallPeakValue, 2134.77);
+  assert.equal(result.fallPeakDate, "2026-07-24");
+  assert.equal(result.fallPeakValue, 5900);
 });

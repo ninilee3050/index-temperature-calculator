@@ -99,7 +99,7 @@ const rangeGroups = [
     className: "range-swing",
     kind: "fall",
     rows: [
-      { rate: 0, sub: "전고점", kind: "fallBase" },
+      { rate: 0, sub: "최근 최고점", kind: "fallBase" },
       { rate: -0.1, sub: "변동" },
       { rate: -0.2, sub: "조정" },
       { rate: -0.3, sub: "폭락" },
@@ -661,7 +661,7 @@ function buildThermometerRows(market, riseNeedleKey, fallNeedleKey, risePeakNeed
   const risePeakReturn = getRisePeakReturn(market);
   const fallPeakReturn = getFallPeakReturn(market);
   const riseLabel = `${monthDiff(market.lowDate, state.asOfDate)}개월 · ${truncatePercent(lowReturn)}%`;
-  const fallLabel = `${monthDiff(market.highDate, state.asOfDate)}개월 · ${truncatePercent(Math.min(highReturn, 0))}%`;
+  const fallLabel = `${monthDiff(getFallAnchorDate(market), state.asOfDate)}개월 · ${truncatePercent(Math.min(highReturn, 0))}%`;
   const risePeakLabel = `최고 ${truncatePercent(risePeakReturn)}%`;
   const fallPeakLabel = `최저 ${truncatePercent(fallPeakReturn)}%`;
   const risePeakTitle = peakTitle("최고", market.risePeakDate, market.risePeakValue);
@@ -737,14 +737,14 @@ function calculateRangeCell(row, kind, market) {
     return { target, active: calcLowReturn(market) >= row.rate };
   }
   if (kind === "fall") {
-    const target = market.highValue * (1 + row.rate);
+    const target = getFallAnchorValue(market) * (1 + row.rate);
     return { target, active: calcHighReturn(market) <= row.rate };
   }
   if (kind === "riseBase") {
     return { target: market.lowValue, text: "상승 0%" };
   }
   if (kind === "fallBase") {
-    return { target: market.highValue, text: "하락 0%" };
+    return { target: getFallAnchorValue(market), text: "하락 0%" };
   }
   return { target: null, text: "0% 기준" };
 }
@@ -1070,7 +1070,16 @@ function calcLowReturn(market) {
 }
 
 function calcHighReturn(market) {
-  return safeDivide(market.currentValue - market.highValue, market.highValue);
+  const highValue = getFallAnchorValue(market);
+  return safeDivide(market.currentValue - highValue, highValue);
+}
+
+function getFallAnchorValue(market) {
+  return finiteNumber(market.risePeakValue) ?? finiteNumber(market.highValue) ?? 0;
+}
+
+function getFallAnchorDate(market) {
+  return market.risePeakDate || market.highDate;
 }
 
 function getRisePeakReturn(market) {
@@ -1085,7 +1094,8 @@ function getRisePeakReturn(market) {
 function getFallPeakReturn(market) {
   const peakValue = finiteNumber(market.fallPeakValue);
   if (peakValue !== null) {
-    return Math.min(safeDivide(peakValue - market.highValue, market.highValue), 0);
+    const highValue = getFallAnchorValue(market);
+    return Math.min(safeDivide(peakValue - highValue, highValue), 0);
   }
   const legacyReturn = finiteNumber(market.fallPeakReturn);
   return legacyReturn ?? Math.min(calcHighReturn(market), 0);
@@ -1098,8 +1108,9 @@ function recordMarketExtremes(market, date = state.asOfDate || localDateString()
   if (currentValue > market.risePeakValue) {
     market.risePeakValue = currentValue;
     market.risePeakDate = date;
-  }
-  if (currentValue < market.fallPeakValue) {
+    market.fallPeakValue = currentValue;
+    market.fallPeakDate = date;
+  } else if (currentValue < market.fallPeakValue) {
     market.fallPeakValue = currentValue;
     market.fallPeakDate = date;
   }
@@ -1116,8 +1127,9 @@ function ensureMarketExtremeValues(market, date = state.asOfDate || localDateStr
       risePeakReturn !== null ? market.lowValue * (1 + risePeakReturn) : currentValue;
   }
   if (finiteNumber(market.fallPeakValue) === null) {
+    const highValue = getFallAnchorValue(market);
     market.fallPeakValue =
-      fallPeakReturn !== null ? market.highValue * (1 + fallPeakReturn) : currentValue;
+      fallPeakReturn !== null ? highValue * (1 + fallPeakReturn) : currentValue;
   }
   market.risePeakDate ||= date;
   market.fallPeakDate ||= date;

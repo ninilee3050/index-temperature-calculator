@@ -62,13 +62,14 @@ test("an unfinished new crash does not replace the last confirmed V-bottom", () 
   assert.equal(result.lowDate, "2020-03-31");
 });
 
-test("historical faint markers use the lowest point after the high and highest point after the low", () => {
+test("historical faint markers use the highest point after the V-bottom and lowest point after that high", () => {
   const rows = [
     row("2021-01-29", 90, 80, 85),
     row("2021-02-26", 120, 110, 115),
     row("2021-03-31", 100, 70, 75),
     row("2021-04-30", 95, 72, 90),
     row("2021-05-31", 150, 100, 145),
+    row("2021-06-15", 140, 90, 120),
     row("2021-06-30", 0, 0, 0),
   ];
 
@@ -82,8 +83,8 @@ test("historical faint markers use the lowest point after the high and highest p
     {
       risePeakDate: "2021-05-31",
       risePeakValue: 150,
-      fallPeakDate: "2021-03-31",
-      fallPeakValue: 70,
+      fallPeakDate: "2021-06-15",
+      fallPeakValue: 90,
     },
   );
 });
