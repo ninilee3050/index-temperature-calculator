@@ -282,7 +282,7 @@ function setupActions() {
     const button = event.target.closest("[data-action]");
     if (!button) return;
 
-    if (button.dataset.action === "show-peak-info") {
+    if (button.dataset.action === "show-peak-info" || button.dataset.action === "show-needle-info") {
       showToast(button.dataset.message, 4000);
       return;
     }
@@ -660,8 +660,14 @@ function buildThermometerRows(market, riseNeedleKey, fallNeedleKey, risePeakNeed
   const highReturn = calcHighReturn(market);
   const risePeakReturn = getRisePeakReturn(market);
   const fallPeakReturn = getFallPeakReturn(market);
-  const riseLabel = `${monthDiff(market.lowDate, state.asOfDate)}개월 · ${truncatePercent(lowReturn)}%`;
-  const fallLabel = `${monthDiff(getFallAnchorDate(market), state.asOfDate)}개월 · ${truncatePercent(Math.min(highReturn, 0))}%`;
+  const riseMonths = monthDiff(market.lowDate, state.asOfDate);
+  const fallAnchorDate = getFallAnchorDate(market);
+  const fallAnchorValue = getFallAnchorValue(market);
+  const fallMonths = monthDiff(fallAnchorDate, state.asOfDate);
+  const riseLabel = `${riseMonths}개월 · ${truncatePercent(lowReturn)}%`;
+  const fallLabel = `${fallMonths}개월 · ${truncatePercent(Math.min(highReturn, 0))}%`;
+  const riseTitle = `상승 기준 · 전저점 ${formatNumber(market.lowValue)} (${market.lowDate}) → 현재 ${formatNumber(market.currentValue)} (${state.asOfDate}) · ${riseMonths}개월 · ${formatSignedPercent(lowReturn)}`;
+  const fallTitle = `하락 기준 · 최근 최고점 ${formatNumber(fallAnchorValue)} (${fallAnchorDate}) → 현재 ${formatNumber(market.currentValue)} (${state.asOfDate}) · ${fallMonths}개월 · ${formatSignedPercent(Math.min(highReturn, 0))}`;
   const risePeakLabel = `최고 ${truncatePercent(risePeakReturn)}%`;
   const fallPeakLabel = `최저 ${truncatePercent(fallPeakReturn)}%`;
   const risePeakTitle = peakTitle("최고", market.risePeakDate, market.risePeakValue);
@@ -701,8 +707,16 @@ function buildThermometerRows(market, riseNeedleKey, fallNeedleKey, risePeakNeed
             } ${isRisePeak ? "is-rise-peak" : ""} ${
               isFallPeak ? "is-fall-peak" : ""
             } ${isZero ? "is-zero" : ""}">
-                ${isRiseNeedle ? `<span class="mercury-label rise">${riseLabel}</span>` : ""}
-                ${isFallNeedle ? `<span class="mercury-label fall">${fallLabel}</span>` : ""}
+                ${
+                  isRiseNeedle
+                    ? `<button type="button" class="mercury-label rise" title="${riseTitle}" aria-label="${riseTitle}" data-action="show-needle-info" data-message="${riseTitle}">${riseLabel}</button>`
+                    : ""
+                }
+                ${
+                  isFallNeedle
+                    ? `<button type="button" class="mercury-label fall" title="${fallTitle}" aria-label="${fallTitle}" data-action="show-needle-info" data-message="${fallTitle}">${fallLabel}</button>`
+                    : ""
+                }
                 ${
                   isRisePeakNeedle
                     ? `<button type="button" class="peak-label rise" title="${risePeakTitle}" aria-label="${risePeakTitle}" data-action="show-peak-info" data-message="${risePeakTitle}">${risePeakLabel}</button>`

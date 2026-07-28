@@ -93,10 +93,19 @@ test("market header shows the exact index point without crowding the needle", ()
 
   assert.match(result.card, /class="market-current-point"/);
   assert.match(result.card, /<strong>6,023\.66<\/strong>/);
-  assert.doesNotMatch(result.rows, /현재 6,023\.66/);
+  assert.doesNotMatch(result.rows, />현재 6,023\.66</);
   assert.match(result.rows, /45개월 · 182%/);
   assert.match(result.rows, /1개월 · -35%/);
   assert.match(result.rows, /최근 최고점/);
+  assert.match(result.rows, /data-action="show-needle-info"/);
+  assert.match(
+    result.rows,
+    /상승 기준 · 전저점 2,134\.77 \(2022-09-30\) → 현재 6,023\.66 \(2026-07-28\) · 45개월 · 182\.17%/,
+  );
+  assert.match(
+    result.rows,
+    /하락 기준 · 최근 최고점 9,385\.59 \(2026-06-19\) → 현재 6,023\.66 \(2026-07-28\) · 1개월 · -35\.82%/,
+  );
   assert.ok(Math.abs(result.drawdown - (6023.66 / 9385.59 - 1)) < 1e-12);
   assert.ok(Math.abs(result.minusThirtyPoint - 6569.913) < 1e-9);
   assert.match(result.rows, /data-action="show-peak-info"/);
