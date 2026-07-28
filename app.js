@@ -626,6 +626,11 @@ function renderMarketThermometer(meta) {
             <span class="market-flag" aria-hidden="true">${meta.flag}</span>
             <h3>${meta.code}</h3>
           </div>
+          <div class="market-current-point">
+            <span>현재 지수</span>
+            <strong>${formatNumber(market.currentValue)}</strong>
+            <small>${state.asOfDate} 기준</small>
+          </div>
         </div>
         <div class="market-header-actions">
           <button class="market-settings-button" type="button" data-action="open-settings" data-market="${meta.key}">
@@ -654,7 +659,6 @@ function buildThermometerRows(market, riseNeedleKey, fallNeedleKey, risePeakNeed
   const highReturn = calcHighReturn(market);
   const risePeakReturn = getRisePeakReturn(market);
   const fallPeakReturn = getFallPeakReturn(market);
-  const currentPointLabel = `현재 ${formatNumber(market.currentValue)}`;
   const riseLabel = `${monthDiff(market.lowDate, state.asOfDate)}개월 · ${truncatePercent(lowReturn)}%`;
   const fallLabel = `${monthDiff(market.highDate, state.asOfDate)}개월 · ${truncatePercent(Math.min(highReturn, 0))}%`;
   const risePeakLabel = `최고 ${truncatePercent(risePeakReturn)}%`;
@@ -696,16 +700,8 @@ function buildThermometerRows(market, riseNeedleKey, fallNeedleKey, risePeakNeed
             } ${isRisePeak ? "is-rise-peak" : ""} ${
               isFallPeak ? "is-fall-peak" : ""
             } ${isZero ? "is-zero" : ""}">
-                ${
-                  isRiseNeedle
-                    ? `<span class="mercury-label rise"><span>${currentPointLabel}</span><span>${riseLabel}</span></span>`
-                    : ""
-                }
-                ${
-                  isFallNeedle
-                    ? `<span class="mercury-label fall"><span>${currentPointLabel}</span><span>${fallLabel}</span></span>`
-                    : ""
-                }
+                ${isRiseNeedle ? `<span class="mercury-label rise">${riseLabel}</span>` : ""}
+                ${isFallNeedle ? `<span class="mercury-label fall">${fallLabel}</span>` : ""}
                 ${
                   isRisePeakNeedle
                     ? `<button type="button" class="peak-label rise" title="${risePeakTitle}" aria-label="${risePeakTitle}" data-action="show-peak-info" data-message="${risePeakTitle}">${risePeakLabel}</button>`

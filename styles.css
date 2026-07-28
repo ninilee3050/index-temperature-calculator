@@ -576,6 +576,29 @@ html[data-theme="dark"] .theme-button.is-on {
   min-width: 0;
 }
 
+.market-current-point {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 7px;
+  margin: 7px 0 0 34px;
+  font-variant-numeric: tabular-nums;
+}
+
+.market-current-point span,
+.market-current-point small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.market-current-point strong {
+  color: var(--ink);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .market-flag {
   display: inline-flex;
   align-items: center;
@@ -886,14 +909,6 @@ html[data-theme="dark"] .theme-button.is-on {
 .mercury-label.rise {
   background: transparent;
   color: #b83d36;
-}
-
-.mercury-label {
-  flex-direction: column;
-  justify-content: center;
-  gap: 1px;
-  line-height: 1.05;
-  text-align: center;
 }
 
 .mercury-label.fall {

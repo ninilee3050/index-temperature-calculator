@@ -37,8 +37,8 @@ test("rise thermometer uses ten-percent intervals", () => {
   }
 });
 
-test("current needle shows its exact index point", () => {
-  const rows = runScenario(`() => {
+test("market header shows the exact index point without crowding the needle", () => {
+  const result = runScenario(`() => {
     state.asOfDate = "2026-07-28";
     const market = {
       currentValue: 6023.66,
@@ -51,18 +51,23 @@ test("current needle shows its exact index point", () => {
       risePeakDate: "2026-06-19",
       fallPeakDate: "2022-09-30",
     };
-    return buildThermometerRows(
+    state.markets.korea = market;
+    const rows = buildThermometerRows(
       market,
       getRiseNeedle(market).key,
       getFallNeedle(market).key,
       getRisePeakNeedle(market).key,
       getFallPeakNeedle(market).key,
     );
+    return { card: renderMarketThermometer(marketMeta[0]), rows };
   }`);
 
-  assert.match(rows, /현재 6,023\.66/);
-  assert.match(rows, /data-action="show-peak-info"/);
-  assert.match(rows, /최고 9,385\.59 · 2026-06-19 · 1개월 전/);
+  assert.match(result.card, /class="market-current-point"/);
+  assert.match(result.card, /<strong>6,023\.66<\/strong>/);
+  assert.doesNotMatch(result.rows, /현재 6,023\.66/);
+  assert.match(result.rows, /45개월 · 182%/);
+  assert.match(result.rows, /data-action="show-peak-info"/);
+  assert.match(result.rows, /최고 9,385\.59 · 2026-06-19 · 1개월 전/);
 });
 
 test("changing a basis keeps the recorded peak point and date", () => {
