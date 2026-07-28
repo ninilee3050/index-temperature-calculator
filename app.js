@@ -3,7 +3,7 @@ const THEME_KEY = "index-range-calculator-theme";
 
 const marketMeta = [
   { key: "korea", title: "한국 시장", code: "KOSPI", flag: "🇰🇷" },
-  { key: "us", title: "미국 시장", code: "NASDAQ", flag: "🇺🇸" },
+  { key: "us", title: "미국 시장", code: "S&P 500", flag: "🇺🇸" },
 ];
 
 const defaultState = {
@@ -49,12 +49,13 @@ const defaultState = {
       fallPeakDate: null,
     },
     us: {
+      symbol: "^GSPC",
       autoBasis: true,
-      currentValue: 20177.66,
-      lowDate: "2022-10-13",
-      lowValue: 10088.83,
-      highDate: "2021-11-22",
-      highValue: 16212.23,
+      currentValue: 7392.49,
+      lowDate: "2020-03-23",
+      lowValue: 2191.86,
+      highDate: "2020-02-19",
+      highValue: 3393.52,
       risePeakValue: null,
       risePeakReturn: null,
       risePeakDate: null,
@@ -424,8 +425,8 @@ async function refreshLiveData({ quiet = false } = {}) {
     }
 
     applyMarketPoint("korea", payload.values.kospi);
-    applyMarketPoint("us", payload.values.nasdaq);
-    applyAsOfDate([payload.values.kospi, payload.values.nasdaq]);
+    applyMarketPoint("us", payload.values.sp500);
+    applyAsOfDate([payload.values.kospi, payload.values.sp500]);
     applyLivePoint("usdKrw", payload.values.usdKrw, (value) => Number(value.toFixed(2)));
     applyLivePoint("dollarIndex", payload.values.dollarIndex, (value) => Number(value.toFixed(2)));
     applyLivePoint("spread10y2y", payload.values.spread10y2y, (value) => `${formatNumber(value, 2)}%`);
@@ -1255,6 +1256,9 @@ function setByPath(source, path, value) {
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved?.markets?.us?.symbol !== defaultState.markets.us.symbol) {
+      saved.markets = { ...saved.markets, us: clone(defaultState.markets.us) };
+    }
     return merge(clone(defaultState), saved);
   } catch {
     return clone(defaultState);

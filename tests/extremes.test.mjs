@@ -37,6 +37,30 @@ test("rise thermometer uses ten-percent intervals", () => {
   }
 });
 
+test("switching from NASDAQ resets only the saved US market to S&P 500", () => {
+  const loaded = runScenario(`() => {
+    localStorage.getItem = () => JSON.stringify({
+      markets: {
+        korea: { currentValue: 4321.09 },
+        us: {
+          currentValue: 20177.66,
+          lowDate: "2022-10-13",
+          lowValue: 10088.83,
+          highDate: "2021-11-22",
+          highValue: 16212.23,
+        },
+      },
+    });
+    return loadState();
+  }`);
+
+  assert.equal(loaded.markets.korea.currentValue, 4321.09);
+  assert.equal(loaded.markets.us.symbol, "^GSPC");
+  assert.equal(loaded.markets.us.currentValue, 7392.49);
+  assert.equal(loaded.markets.us.highDate, "2020-02-19");
+  assert.equal(loaded.markets.us.lowDate, "2020-03-23");
+});
+
 test("market header shows the exact index point without crowding the needle", () => {
   const result = runScenario(`() => {
     state.asOfDate = "2026-07-28";
