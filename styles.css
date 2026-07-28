@@ -580,23 +580,29 @@ html[data-theme="dark"] .theme-button.is-on {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 3px 7px;
+  gap: 2px 6px;
   margin: 7px 0 0 34px;
   font-variant-numeric: tabular-nums;
 }
 
-.market-current-point span,
-.market-current-point small {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
+.market-current-point span {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
 }
 
 .market-current-point strong {
   color: var(--ink);
-  font-size: 21px;
+  font-size: 17px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.15;
+}
+
+.market-current-point small {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .market-flag {
