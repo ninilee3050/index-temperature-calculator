@@ -127,3 +127,24 @@ test("state normalization uses the market date instead of the array index", () =
   assert.equal(result.risePeakDate, "2026-07-28");
   assert.equal(result.fallPeakDate, "2026-07-28");
 });
+
+test("automatic basis applies Yahoo historical extrema to the faint markers", () => {
+  const result = runScenario(`() => {
+    applyMarketBasis("korea", {
+      highDate: "2021-06-25",
+      highValue: 3316.08,
+      lowDate: "2022-09-30",
+      lowValue: 2134.77,
+      risePeakDate: "2026-06-19",
+      risePeakValue: 9385.59,
+      fallPeakDate: "2022-09-30",
+      fallPeakValue: 2134.77,
+    });
+    return state.markets.korea;
+  }`);
+
+  assert.equal(result.risePeakDate, "2026-06-19");
+  assert.equal(result.risePeakValue, 9385.59);
+  assert.equal(result.fallPeakDate, "2022-09-30");
+  assert.equal(result.fallPeakValue, 2134.77);
+});

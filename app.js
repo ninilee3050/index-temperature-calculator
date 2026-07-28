@@ -527,6 +527,16 @@ function applyMarketBasis(marketKey, basis) {
   market.highValue = highValue;
   market.lowDate = basis.lowDate;
   market.lowValue = lowValue;
+  const risePeakValue = finiteNumber(basis.risePeakValue);
+  const fallPeakValue = finiteNumber(basis.fallPeakValue);
+  if (risePeakValue !== null && basis.risePeakDate) {
+    market.risePeakValue = risePeakValue;
+    market.risePeakDate = basis.risePeakDate;
+  }
+  if (fallPeakValue !== null && basis.fallPeakDate) {
+    market.fallPeakValue = fallPeakValue;
+    market.fallPeakDate = basis.fallPeakDate;
+  }
   syncMarketExtremeReturns(market);
 }
 
