@@ -70,26 +70,26 @@ const rangeGroups = [
     label: "초과상승 구간",
     className: "range-overheat",
     kind: "rise",
-    rows: [4.0, 3.8, 3.6, 3.4, 3.2].map((rate) => ({ rate, sub: "" })),
+    rows: descendingTenths(4.0, 3.1).map((rate) => ({ rate, sub: "" })),
   },
   {
     label: "과열상승 구간",
     className: "range-hot",
     kind: "rise",
-    rows: [3.0, 2.8, 2.6, 2.4, 2.2].map((rate) => ({ rate, sub: "" })),
+    rows: descendingTenths(3.0, 2.1).map((rate) => ({ rate, sub: "" })),
   },
   {
     label: "기대상승 구간",
     className: "range-growth",
     kind: "rise",
-    rows: [2.0, 1.8, 1.6, 1.4, 1.2].map((rate) => ({ rate, sub: "" })),
+    rows: descendingTenths(2.0, 1.1).map((rate) => ({ rate, sub: "" })),
   },
   {
     label: "상승시작 구간",
     className: "range-start",
     kind: "rise",
     rows: [
-      ...[1.0, 0.8, 0.6, 0.4, 0.2].map((rate) => ({ rate, sub: "" })),
+      ...descendingTenths(1.0, 0.1).map((rate) => ({ rate, sub: "" })),
       { rate: 0, sub: "전저점", kind: "riseBase" },
     ],
   },
@@ -125,6 +125,15 @@ const rangeGroups = [
     ],
   },
 ];
+
+function descendingTenths(start, end) {
+  const startTenths = Math.round(start * 10);
+  const endTenths = Math.round(end * 10);
+  return Array.from(
+    { length: startTenths - endTenths + 1 },
+    (_, index) => (startTenths - index) / 10,
+  );
+}
 
 const historyRows = [
   {

@@ -22,6 +22,21 @@ function runScenario(scenario) {
   return structuredClone(context.__result);
 }
 
+test("rise thermometer uses ten-percent intervals", () => {
+  const rates = runScenario(`() => rangeGroups
+    .filter((group) => group.kind === "rise")
+    .flatMap((group) => group.rows)
+    .filter((row) => (row.kind || "rise") === "rise")
+    .map((row) => row.rate)`);
+
+  assert.equal(rates.length, 40);
+  assert.equal(rates[0], 4);
+  assert.equal(rates.at(-1), 0.1);
+  for (let index = 1; index < rates.length; index += 1) {
+    assert.ok(Math.abs(rates[index - 1] - rates[index] - 0.1) < Number.EPSILON * 2);
+  }
+});
+
 test("changing a basis keeps the recorded peak point and date", () => {
   const result = runScenario(`() => {
     const market = {
