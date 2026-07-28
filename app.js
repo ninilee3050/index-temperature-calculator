@@ -35,24 +35,30 @@ const defaultState = {
   },
   markets: {
     korea: {
+      autoBasis: true,
       currentValue: 6615.03,
       lowDate: "2022-09-30",
       lowValue: 2134.77,
       highDate: "2021-06-25",
       highValue: 3316.08,
+      risePeakValue: null,
       risePeakReturn: null,
       risePeakDate: null,
+      fallPeakValue: null,
       fallPeakReturn: null,
       fallPeakDate: null,
     },
     us: {
+      autoBasis: true,
       currentValue: 20177.66,
       lowDate: "2022-10-13",
       lowValue: 10088.83,
       highDate: "2021-11-22",
       highValue: 16212.23,
+      risePeakValue: null,
       risePeakReturn: null,
       risePeakDate: null,
+      fallPeakValue: null,
       fallPeakReturn: null,
       fallPeakDate: null,
     },
@@ -174,8 +180,8 @@ const historyRows = [
     crisis: "국제 정세 불안",
     highDate: "2021-06-25",
     highValue: 3316.08,
-    lowDate: null,
-    lowValue: null,
+    lowDate: "2022-09-30",
+    lowValue: 2134.77,
   },
 ];
 
@@ -206,6 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupServerHeartbeat();
   renderAll();
   refreshLiveData({ quiet: true });
+  refreshMarketBasis({ quiet: true });
   refreshYieldCycles({ quiet: true });
 });
 
@@ -245,12 +252,20 @@ function setupActions() {
   document.body.addEventListener("input", (event) => {
     const input = event.target.closest("[data-bind]");
     if (!input) return;
+    const marketKey = isMarketBasisPath(input.dataset.bind) ? marketKeyFromPath(input.dataset.bind) : null;
+    if (marketKey) {
+      ensureMarketExtremeValues(state.markets[marketKey]);
+    }
     setByPath(state, input.dataset.bind, readInput(input));
-    if (isMarketBasisPath(input.dataset.bind)) {
-      resetMarketExtremes(marketKeyFromPath(input.dataset.bind));
+    if (marketKey) {
+      state.markets[marketKey].autoBasis = false;
+      syncMarketExtremeReturns(state.markets[marketKey]);
     }
     saveState();
     renderAll({ keepFocus: input.dataset.bind });
+    if (isMarketAutoBasisPath(input.dataset.bind) && input.checked) {
+      refreshMarketBasis({ quiet: true });
+    }
   });
 
   document.body.addEventListener("click", (event) => {
@@ -299,7 +314,11 @@ function setupActions() {
 }
 
 async function refreshAllData() {
-  await Promise.all([refreshLiveData({ quiet: true }), refreshYieldCycles({ quiet: true })]);
+  await Promise.all([
+    refreshLiveData({ quiet: true }),
+    refreshMarketBasis({ quiet: true }),
+    refreshYieldCycles({ quiet: true }),
+  ]);
   showToast("데이터를 새로고침했습니다.");
 }
 
@@ -463,6 +482,23 @@ async function refreshYieldCycles({ quiet = false } = {}) {
   }
 }
 
+async function refreshMarketBasis({ quiet = false } = {}) {
+  if (location.protocol === "file:") return;
+  try {
+    const response = await fetch(`/api/market-basis?t=${Date.now()}`, { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || "자동 기준점 응답이 비어 있습니다.");
+    }
+    applyMarketBasis("korea", payload.values.korea);
+    applyMarketBasis("us", payload.values.us);
+    saveState();
+    renderAll();
+  } catch {
+    if (!quiet) showToast("자동 기준점을 불러오지 못해 저장된 기준을 사용합니다.");
+  }
+}
+
 function applyLivePoint(key, point, formatter) {
   if (!point || !Number.isFinite(Number(point.value))) return;
   state.macro[key] = formatter(Number(point.value));
@@ -477,6 +513,21 @@ function applyMarketPoint(marketKey, point) {
   const market = state.markets[marketKey];
   market.currentValue = Number(Number(point.value).toFixed(2));
   recordMarketExtremes(market, point.date || state.asOfDate);
+}
+
+function applyMarketBasis(marketKey, basis) {
+  if (!basis) return;
+  const highValue = finiteNumber(basis.highValue);
+  const lowValue = finiteNumber(basis.lowValue);
+  if (highValue === null || lowValue === null || !basis.highDate || !basis.lowDate) return;
+  const market = state.markets[marketKey];
+  if (market.autoBasis === false) return;
+  ensureMarketExtremeValues(market);
+  market.highDate = basis.highDate;
+  market.highValue = highValue;
+  market.lowDate = basis.lowDate;
+  market.lowValue = lowValue;
+  syncMarketExtremeReturns(market);
 }
 
 function applyAsOfDate(points) {
@@ -521,7 +572,11 @@ function renderBoundInputs(keepFocus) {
   document.querySelectorAll("[data-bind]").forEach((input) => {
     if (input === active) return;
     const value = getByPath(state, input.dataset.bind);
-    input.value = value ?? "";
+    if (input.type === "checkbox") {
+      input.checked = Boolean(value);
+    } else {
+      input.value = value ?? "";
+    }
   });
 }
 
@@ -981,41 +1036,73 @@ function calcHighReturn(market) {
 }
 
 function getRisePeakReturn(market) {
-  const value = Number(market.risePeakReturn);
-  return Number.isFinite(value) ? value : Math.max(calcLowReturn(market), 0);
+  const peakValue = finiteNumber(market.risePeakValue);
+  if (peakValue !== null) {
+    return Math.max(safeDivide(peakValue - market.lowValue, market.lowValue), 0);
+  }
+  const legacyReturn = finiteNumber(market.risePeakReturn);
+  return legacyReturn ?? Math.max(calcLowReturn(market), 0);
 }
 
 function getFallPeakReturn(market) {
-  const value = Number(market.fallPeakReturn);
-  return Number.isFinite(value) ? value : Math.min(calcHighReturn(market), 0);
+  const peakValue = finiteNumber(market.fallPeakValue);
+  if (peakValue !== null) {
+    return Math.min(safeDivide(peakValue - market.highValue, market.highValue), 0);
+  }
+  const legacyReturn = finiteNumber(market.fallPeakReturn);
+  return legacyReturn ?? Math.min(calcHighReturn(market), 0);
 }
 
 function recordMarketExtremes(market, date = state.asOfDate || localDateString()) {
-  const currentRise = Math.max(calcLowReturn(market), 0);
-  const currentFall = Math.min(calcHighReturn(market), 0);
-  if (currentRise >= getRisePeakReturn(market)) {
-    market.risePeakReturn = currentRise;
+  ensureMarketExtremeValues(market, date);
+  const currentValue = finiteNumber(market.currentValue);
+  if (currentValue === null) return;
+  if (currentValue > market.risePeakValue) {
+    market.risePeakValue = currentValue;
     market.risePeakDate = date;
   }
-  if (currentFall <= getFallPeakReturn(market)) {
-    market.fallPeakReturn = currentFall;
+  if (currentValue < market.fallPeakValue) {
+    market.fallPeakValue = currentValue;
     market.fallPeakDate = date;
+  }
+  syncMarketExtremeReturns(market);
+}
+
+function ensureMarketExtremeValues(market, date = state.asOfDate || localDateString()) {
+  const currentValue = finiteNumber(market.currentValue);
+  const risePeakReturn = finiteNumber(market.risePeakReturn);
+  const fallPeakReturn = finiteNumber(market.fallPeakReturn);
+
+  if (finiteNumber(market.risePeakValue) === null) {
+    market.risePeakValue =
+      risePeakReturn !== null ? market.lowValue * (1 + risePeakReturn) : currentValue;
+  }
+  if (finiteNumber(market.fallPeakValue) === null) {
+    market.fallPeakValue =
+      fallPeakReturn !== null ? market.highValue * (1 + fallPeakReturn) : currentValue;
   }
   market.risePeakDate ||= date;
   market.fallPeakDate ||= date;
+  syncMarketExtremeReturns(market);
 }
 
-function resetMarketExtremes(marketKey) {
-  const market = state.markets[marketKey];
-  if (!market) return;
-  market.risePeakReturn = Math.max(calcLowReturn(market), 0);
-  market.risePeakDate = state.asOfDate || localDateString();
-  market.fallPeakReturn = Math.min(calcHighReturn(market), 0);
-  market.fallPeakDate = state.asOfDate || localDateString();
+function syncMarketExtremeReturns(market) {
+  market.risePeakReturn = getRisePeakReturn(market);
+  market.fallPeakReturn = getFallPeakReturn(market);
+}
+
+function finiteNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function isMarketBasisPath(path) {
   return /^markets\.[^.]+\.(lowDate|lowValue|highDate|highValue)$/.test(path);
+}
+
+function isMarketAutoBasisPath(path) {
+  return /^markets\.[^.]+\.autoBasis$/.test(path);
 }
 
 function marketKeyFromPath(path) {
@@ -1108,6 +1195,7 @@ function formatTopDateTime(value) {
 }
 
 function readInput(input) {
+  if (input.type === "checkbox") return input.checked;
   if (input.type === "number") {
     const value = Number(input.value);
     return Number.isFinite(value) ? value : 0;
@@ -1141,7 +1229,9 @@ function normalizeState(next) {
       next.macro[key] = "-";
     }
   });
-  Object.values(next.markets || {}).forEach(recordMarketExtremes);
+  Object.values(next.markets || {}).forEach((market) => {
+    recordMarketExtremes(market, next.asOfDate || localDateString());
+  });
   return next;
 }
 

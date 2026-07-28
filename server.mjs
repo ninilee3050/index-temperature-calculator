@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getMacroData, getYieldCycles } from "./lib/market-data.mjs";
+import { getMacroData, getMarketBasisData, getYieldCycles } from "./lib/market-data.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const basePort = Number(process.env.PORT || 4173);
@@ -40,6 +40,10 @@ const server = http.createServer(async (request, response) => {
     }
     if (url.pathname === "/api/macro") {
       sendJson(response, 200, await getMacroData());
+      return;
+    }
+    if (url.pathname === "/api/market-basis") {
+      sendJson(response, 200, await getMarketBasisData());
       return;
     }
     if (url.pathname === "/api/yield-cycles") {

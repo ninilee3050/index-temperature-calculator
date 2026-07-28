@@ -71,6 +71,10 @@
           <article class="settings-market" data-settings-market="korea">
             <h3>한국 시장 KOSPI</h3>
             <div class="market-fields">
+              <label class="auto-basis-field">
+                <input type="checkbox" data-bind="markets.korea.autoBasis" />
+                <span>주요 폭락 V저점 자동 설정</span>
+              </label>
               <label class="field">
                 <span>전저점 날짜</span>
                 <input type="date" data-bind="markets.korea.lowDate" />
@@ -92,6 +96,10 @@
           <article class="settings-market" data-settings-market="us">
             <h3>미국 시장 NASDAQ</h3>
             <div class="market-fields">
+              <label class="auto-basis-field">
+                <input type="checkbox" data-bind="markets.us.autoBasis" />
+                <span>주요 폭락 V저점 자동 설정</span>
+              </label>
               <label class="field">
                 <span>전저점 날짜</span>
                 <input type="date" data-bind="markets.us.lowDate" />

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "check": "node --check app.js && node --check server.mjs && node --check api/macro.js && node --check api/yield-cycles.js && node --check lib/market-data.mjs"
+    "check": "node --check app.js && node --check server.mjs && node --check api/macro.js && node --check api/market-basis.js && node --check api/yield-cycles.js && node --check lib/market-data.mjs",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18"

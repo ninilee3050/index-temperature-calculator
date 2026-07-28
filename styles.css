@@ -468,6 +468,22 @@ html[data-theme="dark"] .theme-button.is-on {
   gap: 14px 10px;
 }
 
+.auto-basis-field {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auto-basis-field input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
 .summary-strip {
   display: none;
   grid-template-columns: repeat(4, minmax(0, 1fr));
