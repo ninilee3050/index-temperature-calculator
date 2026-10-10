@@ -27,6 +27,7 @@ KOSPI와 S&P 500의 전저점·전고점을 기준으로 현재 지수 위치를
 - 최고/최저 도달 퍼센트와 마우스오버 기록일 표시
 - 달러 환율, 달러지수, 미국 장단기 금리차 표시
 - CNN 공포탐욕지수 표시
+- 기타 정보의 각 지표를 누르면 날짜별 추이 차트 표시 (3개월 / 1년 / 5년)
 - 라이트 / 다크 모드 지원
 
 ## 데이터 업데이트 방식
@@ -102,7 +103,7 @@ Vercel에 GitHub 저장소를 연결하면 아래 흐름으로 동작합니다.
 - 데이터베이스를 사용하지 않습니다.
 - 로그인 기능을 사용하지 않습니다.
 - 결제 기능이나 개인정보 입력 기능이 없습니다.
-- 서버는 `/api/macro`, `/api/market-basis` 데이터 조회만 담당합니다.
+- 서버는 `/api/macro`, `/api/macro-history`, `/api/market-basis` 데이터 조회만 담당합니다.
 - 방문자가 많아지면 Vercel 무료 한도나 외부 데이터 소스 제한에 걸릴 수 있습니다.
 - 외부 공개 데이터 소스가 일시적으로 막히면 일부 지표가 표시되지 않을 수 있습니다.
 
@@ -157,6 +158,7 @@ server.mjs              로컬 앱 서버
 lib/market-data.mjs     실시간 데이터 수집 공용 로직
 api/macro.js            Vercel 매크로 데이터 API
 api/market-basis.js     Vercel 자동 전고점·전저점 기준 API
+api/macro-history.js    Vercel 매크로 지표 추이 API
 tests/                  자동 기준·온도계 계산 테스트
 vercel.json             Vercel 배포 설정
 지수 구간 계산 앱.cmd    로컬 실행 파일
