@@ -9,6 +9,7 @@ function runScenario(scenario) {
   const context = {
     console,
     structuredClone,
+    URLSearchParams,
     localStorage: {
       getItem: () => null,
       setItem: () => {},
@@ -137,7 +138,7 @@ test("changing a basis keeps the recorded peak point and date", () => {
   assert.equal(result.risePeakReturn, 0.75);
   assert.equal(result.fallPeakValue, 110);
   assert.equal(result.fallPeakDate, "2026-01-03");
-  assert.equal(result.fallPeakReturn, -0.21428571428571427);
+  assert.equal(result.fallPeakReturn, -0.3125);
 });
 
 test("legacy percentage records migrate to absolute points before a basis edit", () => {
@@ -161,7 +162,7 @@ test("legacy percentage records migrate to absolute points before a basis edit",
 
   assert.equal(result.risePeakValue, 140);
   assert.equal(result.risePeakReturn, 0.75);
-  assert.equal(result.fallPeakValue, 112);
+  assert.equal(result.fallPeakValue, 120);
   assert.equal(result.fallPeakDate, "2026-01-03");
   assert.equal(result.fallPeakReturn, -0.2);
 });
@@ -238,4 +239,60 @@ test("automatic basis applies Yahoo historical extrema to the faint markers", ()
   assert.equal(result.risePeakValue, 9385.59);
   assert.equal(result.fallPeakDate, "2026-07-24");
   assert.equal(result.fallPeakValue, 5900);
+});
+
+test("manual basis takes only the extremes recomputed for its own low date", () => {
+  const result = runScenario(`() => {
+    const market = state.markets.korea;
+    market.autoBasis = false;
+    market.lowDate = "2020-03-19";
+    market.lowValue = 1439.43;
+    market.risePeakValue = 7216.62;
+    market.risePeakDate = "2026-08-18";
+    applyMarketBasis("korea", {
+      highDate: "2026-06-19",
+      highValue: 9385.59,
+      lowDate: "2026-07-29",
+      lowValue: 5262.77,
+      risePeakDate: "2026-08-18",
+      risePeakValue: 7216.62,
+    });
+    const afterAutomatic = { lowDate: market.lowDate, risePeakValue: market.risePeakValue };
+    applyMarketBasis("korea", {
+      manual: true,
+      lowDate: "2019-01-01",
+      risePeakDate: "2026-06-19",
+      risePeakValue: 9000,
+    });
+    const afterStaleManual = market.risePeakValue;
+    applyMarketBasis("korea", {
+      manual: true,
+      lowDate: "2020-03-19",
+      risePeakDate: "2026-06-19",
+      risePeakValue: 9385.59,
+      fallPeakDate: "2026-07-29",
+      fallPeakValue: 5262.77,
+    });
+    return { afterAutomatic, afterStaleManual, market, url: marketBasisUrl() };
+  }`);
+
+  assert.deepEqual(result.afterAutomatic, { lowDate: "2020-03-19", risePeakValue: 7216.62 });
+  assert.equal(result.afterStaleManual, 7216.62);
+  assert.equal(result.market.lowValue, 1439.43);
+  assert.equal(result.market.risePeakValue, 9385.59);
+  assert.equal(result.market.risePeakDate, "2026-06-19");
+  assert.equal(result.market.fallPeakValue, 5262.77);
+  assert.equal(result.url, "/api/market-basis?korea=2020-03-19");
+});
+
+test("each market header shows its own quote date", () => {
+  const cards = runScenario(`() => {
+    state.asOfDate = "2026-10-09";
+    state.markets.korea.currentDate = "2026-10-08";
+    state.markets.us.currentDate = "2026-10-09";
+    return marketMeta.map((meta) => renderMarketThermometer(meta));
+  }`);
+
+  assert.match(cards[0], /<small>2026-10-08 기준<\/small>/);
+  assert.match(cards[1], /<small>2026-10-09 기준<\/small>/);
 });

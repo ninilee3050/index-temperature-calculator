@@ -221,9 +221,10 @@ document.addEventListener("DOMContentLoaded", () => {
   setupAutoHideTopNav();
   setupServerHeartbeat();
   renderAll();
-  refreshLiveData({ quiet: true });
+  refreshLiveData({ quiet: true }).then((result) => {
+    if (!result.ok) showToast("시장 데이터를 불러오지 못해 저장된 값을 표시합니다.", 4000);
+  });
   refreshMarketBasis({ quiet: true });
-  refreshYieldCycles({ quiet: true });
 });
 
 function setupTabs() {
@@ -273,7 +274,10 @@ function setupActions() {
     }
     saveState();
     renderAll({ keepFocus: input.dataset.bind });
-    if (isMarketAutoBasisPath(input.dataset.bind) && input.checked) {
+    if (
+      (isMarketAutoBasisPath(input.dataset.bind) && input.checked) ||
+      isMarketLowDatePath(input.dataset.bind)
+    ) {
       refreshMarketBasis({ quiet: true });
     }
   });
@@ -329,12 +333,18 @@ function setupActions() {
 }
 
 async function refreshAllData() {
-  await Promise.all([
+  const [live, basis] = await Promise.all([
     refreshLiveData({ quiet: true }),
     refreshMarketBasis({ quiet: true }),
-    refreshYieldCycles({ quiet: true }),
   ]);
-  showToast("데이터를 새로고침했습니다.");
+  if (!live.ok) {
+    showToast("시장 데이터를 불러오지 못해 저장된 값을 표시합니다.", 4000);
+  } else if (live.failedKeys.length || !basis.ok) {
+    const failed = [...live.failedKeys.map(macroLabel), ...(basis.ok ? [] : ["자동 기준"])];
+    showToast(`일부 데이터를 불러오지 못했습니다: ${failed.join(", ")}`, 4000);
+  } else {
+    showToast("데이터를 새로고침했습니다.");
+  }
 }
 
 function setupTheme() {
@@ -407,7 +417,7 @@ async function refreshLiveData({ quiet = false } = {}) {
     };
     renderLiveStatus();
     if (!quiet) showToast("앱 서버 주소로 열면 시장 데이터를 불러옵니다.");
-    return;
+    return { ok: true, failedKeys: [] };
   }
 
   state.liveData = {
@@ -418,7 +428,7 @@ async function refreshLiveData({ quiet = false } = {}) {
   renderLiveStatus();
 
   try {
-    const response = await fetch(`/api/macro?t=${Date.now()}`, { cache: "no-store" });
+    const response = await fetch("/api/macro", { cache: "no-store" });
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
       throw new Error(payload.error || "시장 데이터 응답이 비어 있습니다.");
@@ -441,14 +451,17 @@ async function refreshLiveData({ quiet = false } = {}) {
     saveState();
     renderAll();
     if (!quiet) showToast("시장 데이터를 갱신했습니다.");
+    return { ok: true, failedKeys: state.liveData.errors.map((item) => item.key) };
   } catch (error) {
     state.liveData = {
       status: "자동 불러오기 실패, 수동 입력값 사용 중",
       updatedAt: state.liveData.updatedAt,
+      failed: true,
       errors: [{ key: "network", error: String(error.message || error) }],
     };
     renderLiveStatus();
     if (!quiet) showToast("시장 데이터를 불러오지 못했습니다.");
+    return { ok: false, failedKeys: [] };
   }
 }
 
@@ -498,9 +511,9 @@ async function refreshYieldCycles({ quiet = false } = {}) {
 }
 
 async function refreshMarketBasis({ quiet = false } = {}) {
-  if (location.protocol === "file:") return;
+  if (location.protocol === "file:") return { ok: true };
   try {
-    const response = await fetch(`/api/market-basis?t=${Date.now()}`, { cache: "no-store" });
+    const response = await fetch(marketBasisUrl(), { cache: "no-store" });
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
       throw new Error(payload.error || "자동 기준점 응답이 비어 있습니다.");
@@ -508,10 +521,35 @@ async function refreshMarketBasis({ quiet = false } = {}) {
     applyMarketBasis("korea", payload.values.korea);
     applyMarketBasis("us", payload.values.us);
     saveState();
-    renderAll();
+    renderAll({ keepFocus: true });
+    return { ok: !payload.errors?.length };
   } catch {
     if (!quiet) showToast("자동 기준점을 불러오지 못해 저장된 기준을 사용합니다.");
+    return { ok: false };
   }
+}
+
+function marketBasisUrl() {
+  const params = new URLSearchParams();
+  marketMeta.forEach(({ key }) => {
+    const market = state.markets[key];
+    if (market.autoBasis === false && market.lowDate) params.set(key, market.lowDate);
+  });
+  const query = params.toString();
+  return query ? `/api/market-basis?${query}` : "/api/market-basis";
+}
+
+function macroLabel(key) {
+  const labels = {
+    kospi: "KOSPI",
+    sp500: "S&P 500",
+    usdKrw: "환율",
+    dollarIndex: "달러 지수",
+    spread10y2y: "금리차 10Y-2Y",
+    spread10y3m: "금리차 10Y-3M",
+    fearGreed: "공포탐욕지수",
+  };
+  return labels[key] || key;
 }
 
 function applyLivePoint(key, point, formatter) {
@@ -527,21 +565,30 @@ function applyMarketPoint(marketKey, point) {
   if (!point || !Number.isFinite(Number(point.value))) return;
   const market = state.markets[marketKey];
   market.currentValue = Number(Number(point.value).toFixed(2));
+  market.currentDate = point.date || null;
   recordMarketExtremes(market, point.date || state.asOfDate);
 }
 
 function applyMarketBasis(marketKey, basis) {
   if (!basis) return;
-  const highValue = finiteNumber(basis.highValue);
-  const lowValue = finiteNumber(basis.lowValue);
-  if (highValue === null || lowValue === null || !basis.highDate || !basis.lowDate) return;
   const market = state.markets[marketKey];
-  if (market.autoBasis === false) return;
-  ensureMarketExtremeValues(market);
-  market.highDate = basis.highDate;
-  market.highValue = highValue;
-  market.lowDate = basis.lowDate;
-  market.lowValue = lowValue;
+  if (market.autoBasis === false) {
+    // Manual basis: only take the extremes the server recomputed for this exact low date.
+    if (!basis.manual || basis.lowDate !== market.lowDate) return;
+    if (finiteNumber(basis.highValue) !== null && basis.highDate) {
+      market.highDate = basis.highDate;
+      market.highValue = finiteNumber(basis.highValue);
+    }
+  } else {
+    const highValue = finiteNumber(basis.highValue);
+    const lowValue = finiteNumber(basis.lowValue);
+    if (basis.manual || highValue === null || lowValue === null || !basis.highDate || !basis.lowDate) return;
+    ensureMarketExtremeValues(market);
+    market.highDate = basis.highDate;
+    market.highValue = highValue;
+    market.lowDate = basis.lowDate;
+    market.lowValue = lowValue;
+  }
   const risePeakValue = finiteNumber(basis.risePeakValue);
   const fallPeakValue = finiteNumber(basis.fallPeakValue);
   if (risePeakValue !== null && basis.risePeakDate) {
@@ -589,7 +636,8 @@ function renderTopTimestamp() {
   const target = document.querySelector("[data-date-badge]");
   if (!target) return;
   const updatedAt = state.liveData?.updatedAt || state.yieldCycles?.updatedAt;
-  target.textContent = updatedAt ? formatTopDateTime(updatedAt) : "갱신 대기 중";
+  const label = updatedAt ? formatTopDateTime(updatedAt) : "갱신 대기 중";
+  target.textContent = state.liveData?.failed ? `${label} · 갱신 실패` : label;
 }
 
 function renderBoundInputs(keepFocus) {
@@ -630,7 +678,7 @@ function renderMarketThermometer(meta) {
           <div class="market-current-point">
             <span>현재 지수</span>
             <strong>${formatNumber(market.currentValue)}</strong>
-            <small>${state.asOfDate} 기준</small>
+            <small>${market.currentDate ? `${market.currentDate} 기준` : "갱신 전 기본값"}</small>
           </div>
         </div>
         <div class="market-header-actions">
@@ -660,18 +708,19 @@ function buildThermometerRows(market, riseNeedleKey, fallNeedleKey, risePeakNeed
   const highReturn = calcHighReturn(market);
   const risePeakReturn = getRisePeakReturn(market);
   const fallPeakReturn = getFallPeakReturn(market);
-  const riseMonths = monthDiff(market.lowDate, state.asOfDate);
+  const asOfDate = marketAsOfDate(market);
+  const riseMonths = monthDiff(market.lowDate, asOfDate);
   const fallAnchorDate = getFallAnchorDate(market);
   const fallAnchorValue = getFallAnchorValue(market);
-  const fallMonths = monthDiff(fallAnchorDate, state.asOfDate);
+  const fallMonths = monthDiff(fallAnchorDate, asOfDate);
   const riseLabel = `${riseMonths}개월 · ${truncatePercent(lowReturn)}%`;
   const fallLabel = `${fallMonths}개월 · ${truncatePercent(Math.min(highReturn, 0))}%`;
-  const riseTitle = `상승 기준 · 전저점 ${formatNumber(market.lowValue)} (${market.lowDate}) → 현재 ${formatNumber(market.currentValue)} (${state.asOfDate}) · ${riseMonths}개월 · ${formatSignedPercent(lowReturn)}`;
-  const fallTitle = `하락 기준 · 최근 최고점 ${formatNumber(fallAnchorValue)} (${fallAnchorDate}) → 현재 ${formatNumber(market.currentValue)} (${state.asOfDate}) · ${fallMonths}개월 · ${formatSignedPercent(Math.min(highReturn, 0))}`;
+  const riseTitle = `상승 기준 · 전저점 ${formatNumber(market.lowValue)} (${market.lowDate}) → 현재 ${formatNumber(market.currentValue)} (${asOfDate}) · ${riseMonths}개월 · ${formatSignedPercent(lowReturn)}`;
+  const fallTitle = `하락 기준 · 최근 최고점 ${formatNumber(fallAnchorValue)} (${fallAnchorDate}) → 현재 ${formatNumber(market.currentValue)} (${asOfDate}) · ${fallMonths}개월 · ${formatSignedPercent(Math.min(highReturn, 0))}`;
   const risePeakLabel = `최고 ${truncatePercent(risePeakReturn)}%`;
   const fallPeakLabel = `최저 ${truncatePercent(fallPeakReturn)}%`;
-  const risePeakTitle = peakTitle("최고", market.risePeakDate, market.risePeakValue);
-  const fallPeakTitle = peakTitle("최저", market.fallPeakDate, market.fallPeakValue);
+  const risePeakTitle = peakTitle("최고", market.risePeakDate, market.risePeakValue, asOfDate);
+  const fallPeakTitle = peakTitle("최저", market.fallPeakDate, market.fallPeakValue, asOfDate);
   return rangeGroups
     .map((group) => {
       const groupRows = group.rows
@@ -1088,12 +1137,23 @@ function calcHighReturn(market) {
   return safeDivide(market.currentValue - highValue, highValue);
 }
 
+// The drawdown anchor is the all-time high: the previous high until the rebound exceeds it.
+function highIsFallAnchor(market) {
+  const highValue = finiteNumber(market.highValue);
+  const risePeakValue = finiteNumber(market.risePeakValue);
+  return risePeakValue === null || (highValue !== null && highValue > risePeakValue);
+}
+
 function getFallAnchorValue(market) {
-  return finiteNumber(market.risePeakValue) ?? finiteNumber(market.highValue) ?? 0;
+  return (highIsFallAnchor(market) ? finiteNumber(market.highValue) : finiteNumber(market.risePeakValue)) ?? 0;
+}
+
+function marketAsOfDate(market) {
+  return market.currentDate || state.asOfDate;
 }
 
 function getFallAnchorDate(market) {
-  return market.risePeakDate || market.highDate;
+  return highIsFallAnchor(market) ? market.highDate : market.risePeakDate || market.highDate;
 }
 
 function getRisePeakReturn(market) {
@@ -1119,9 +1179,12 @@ function recordMarketExtremes(market, date = state.asOfDate || localDateString()
   ensureMarketExtremeValues(market, date);
   const currentValue = finiteNumber(market.currentValue);
   if (currentValue === null) return;
+  const isNewHigh = currentValue > getFallAnchorValue(market);
   if (currentValue > market.risePeakValue) {
     market.risePeakValue = currentValue;
     market.risePeakDate = date;
+  }
+  if (isNewHigh) {
     market.fallPeakValue = currentValue;
     market.fallPeakDate = date;
   } else if (currentValue < market.fallPeakValue) {
@@ -1162,7 +1225,11 @@ function finiteNumber(value) {
 }
 
 function isMarketBasisPath(path) {
-  return /^markets\.[^.]+\.(lowDate|lowValue|highDate|highValue)$/.test(path);
+  return /^markets\.[^.]+\.(lowDate|lowValue)$/.test(path);
+}
+
+function isMarketLowDatePath(path) {
+  return /^markets\.[^.]+\.lowDate$/.test(path);
 }
 
 function isMarketAutoBasisPath(path) {
@@ -1187,9 +1254,9 @@ function monthDiff(start, end) {
   return Math.max(months, 0);
 }
 
-function peakTitle(label, date, value) {
+function peakTitle(label, date, value, asOfDate = state.asOfDate) {
   if (!date) return `${label} 기록일 없음`;
-  const months = monthDiff(date, state.asOfDate);
+  const months = monthDiff(date, asOfDate);
   const point = Number.isFinite(Number(value)) ? `${formatNumber(value)} · ` : "";
   return `${label} ${point}${date} · ${months}개월 전`;
 }

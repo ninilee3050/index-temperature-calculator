@@ -7,8 +7,12 @@ export default async function handler(request, response) {
     return;
   }
   try {
-    response.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=120");
-    response.status(200).json(await getMacroData());
+    const payload = await getMacroData();
+    response.setHeader(
+      "Cache-Control",
+      payload.ok && !payload.errors.length ? "s-maxage=300, stale-while-revalidate=120" : "no-store",
+    );
+    response.status(200).json(payload);
   } catch (error) {
     response.status(500).json({ ok: false, error: String(error.message || error) });
   }

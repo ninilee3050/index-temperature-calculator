@@ -43,7 +43,8 @@ const server = http.createServer(async (request, response) => {
       return;
     }
     if (url.pathname === "/api/market-basis") {
-      sendJson(response, 200, await getMarketBasisData());
+      const lowDates = { korea: url.searchParams.get("korea"), us: url.searchParams.get("us") };
+      sendJson(response, 200, await getMarketBasisData({ lowDates }));
       return;
     }
     if (url.pathname === "/api/yield-cycles") {
