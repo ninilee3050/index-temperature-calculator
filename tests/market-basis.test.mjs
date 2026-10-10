@@ -135,3 +135,20 @@ test("a dip that holds above the confirmed V-bottom keeps the basis", () => {
   assert.equal(result.highValue, 200);
   assert.equal(result.lowValue, 110);
 });
+
+test("a low earlier in the peak's own month is never used as the trough", () => {
+  const rows = [
+    row("2021-01-05", 100, 60, 95),
+    row("2021-01-25", 200, 150, 190),
+    row("2021-02-26", 195, 145, 150),
+    row("2021-03-31", 160, 120, 150),
+    row("2021-04-30", 170, 140, 165),
+    row("2021-05-31", 180, 150, 175),
+  ];
+
+  const result = detectMajorVBottom(rows, { asOfDate: "2021-06-15" });
+  assert.equal(result.highDate, "2021-01-25");
+  assert.equal(result.lowDate, "2021-03-31");
+  assert.equal(result.lowValue, 120);
+  assert.ok(result.lowDate > result.highDate);
+});
