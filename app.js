@@ -575,6 +575,10 @@ function applyMarketBasis(marketKey, basis) {
   if (market.autoBasis === false) {
     // Manual basis: only take the extremes the server recomputed for this exact low date.
     if (!basis.manual || basis.lowDate !== market.lowDate) return;
+    if (finiteNumber(basis.highValue) !== null && basis.highDate) {
+      market.highDate = basis.highDate;
+      market.highValue = finiteNumber(basis.highValue);
+    }
   } else {
     const highValue = finiteNumber(basis.highValue);
     const lowValue = finiteNumber(basis.lowValue);
@@ -1133,8 +1137,15 @@ function calcHighReturn(market) {
   return safeDivide(market.currentValue - highValue, highValue);
 }
 
+// The drawdown anchor is the all-time high: the previous high until the rebound exceeds it.
+function highIsFallAnchor(market) {
+  const highValue = finiteNumber(market.highValue);
+  const risePeakValue = finiteNumber(market.risePeakValue);
+  return risePeakValue === null || (highValue !== null && highValue > risePeakValue);
+}
+
 function getFallAnchorValue(market) {
-  return finiteNumber(market.risePeakValue) ?? finiteNumber(market.highValue) ?? 0;
+  return (highIsFallAnchor(market) ? finiteNumber(market.highValue) : finiteNumber(market.risePeakValue)) ?? 0;
 }
 
 function marketAsOfDate(market) {
@@ -1142,7 +1153,7 @@ function marketAsOfDate(market) {
 }
 
 function getFallAnchorDate(market) {
-  return market.risePeakDate || market.highDate;
+  return highIsFallAnchor(market) ? market.highDate : market.risePeakDate || market.highDate;
 }
 
 function getRisePeakReturn(market) {
@@ -1168,9 +1179,12 @@ function recordMarketExtremes(market, date = state.asOfDate || localDateString()
   ensureMarketExtremeValues(market, date);
   const currentValue = finiteNumber(market.currentValue);
   if (currentValue === null) return;
+  const isNewHigh = currentValue > getFallAnchorValue(market);
   if (currentValue > market.risePeakValue) {
     market.risePeakValue = currentValue;
     market.risePeakDate = date;
+  }
+  if (isNewHigh) {
     market.fallPeakValue = currentValue;
     market.fallPeakDate = date;
   } else if (currentValue < market.fallPeakValue) {

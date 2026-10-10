@@ -1,68 +1,113 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { detectMajorVBottom, findBasisExtremes } from "../lib/market-data.mjs";
+import { detectCycleBasis, findBasisExtremes } from "../lib/market-data.mjs";
 
 function row(date, high, low, close = high) {
   return { date, high, low, close };
 }
 
-test("ordinary pullbacks never replace the crisis basis", () => {
-  const result = detectMajorVBottom(
-    [
-      row("2021-01-29", 100, 95, 98),
-      row("2021-02-26", 120, 105, 115),
-      row("2021-03-31", 118, 92, 100),
-      row("2021-04-30", 115, 96, 110),
-    ],
-    { asOfDate: "2021-06-01" },
-  );
+// 24 flat months at 100 so the 20-month average exists and sits at 100.
+function flatHistory() {
+  const rows = [];
+  for (let index = 0; index < 24; index += 1) {
+    const year = 2018 + Math.floor(index / 12);
+    const month = String((index % 12) + 1).padStart(2, "0");
+    rows.push(row(`${year}-${month}-15`, 100, 95, 100));
+  }
+  return rows;
+}
 
-  assert.equal(result, null);
-});
-
-test("a 30 percent crash plus a confirmed monthly V produces a locked basis", () => {
-  const result = detectMajorVBottom(
-    [
-      row("2021-01-29", 100, 95, 98),
-      row("2021-02-26", 120, 110, 115),
-      row("2021-03-31", 100, 82, 85),
-      row("2021-04-30", 88, 70, 75),
-      row("2021-05-31", 82, 74, 80),
-      row("2021-06-30", 92, 76, 88),
-    ],
-    { asOfDate: "2021-07-01" },
-  );
+test("a 30 percent fall under the 20-month average sets the basis right away", () => {
+  const result = detectCycleBasis([
+    ...flatHistory(),
+    row("2020-01-15", 120, 110, 118),
+    row("2020-02-14", 115, 80, 82),
+  ]);
 
   assert.deepEqual(result, {
-    highDate: "2021-02-26",
+    highDate: "2020-01-15",
     highValue: 120,
-    lowDate: "2021-04-30",
-    lowValue: 70,
-    source: "automatic-major-v",
-    confirmedDate: "2021-06-30",
+    lowDate: "2020-02-14",
+    lowValue: 80,
+    source: "automatic-cycle",
   });
 });
 
-test("an unfinished new crash does not replace the last confirmed V-bottom", () => {
-  const result = detectMajorVBottom(
-    [
-      row("2020-01-31", 100, 95, 98),
-      row("2020-02-28", 120, 110, 115),
-      row("2020-03-31", 90, 70, 75),
-      row("2020-04-30", 84, 74, 82),
-      row("2020-05-29", 92, 76, 88),
-      row("2021-01-29", 150, 140, 148),
-      row("2021-02-26", 145, 100, 105),
-    ],
-    { asOfDate: "2021-04-01" },
-  );
+test("the low keeps following the price down once it qualifies", () => {
+  const result = detectCycleBasis([
+    ...flatHistory(),
+    row("2020-01-15", 120, 110, 118),
+    row("2020-02-14", 115, 80, 82),
+    row("2020-03-13", 90, 70, 75),
+    row("2020-04-15", 95, 72, 90),
+  ]);
 
-  assert.equal(result.highDate, "2020-02-28");
-  assert.equal(result.lowDate, "2020-03-31");
+  assert.equal(result.highValue, 120);
+  assert.equal(result.lowDate, "2020-03-13");
+  assert.equal(result.lowValue, 70);
 });
 
-test("historical faint markers use the highest point after the V-bottom and lowest point after that high", () => {
+test("a 30 percent fall that stays above the 20-month average is ignored", () => {
+  const rows = [
+    ...flatHistory(),
+    row("2020-01-15", 120, 110, 118),
+    row("2020-02-14", 115, 80, 82),
+    row("2020-06-15", 130, 100, 128),
+    row("2020-09-15", 300, 200, 290),
+    row("2020-10-15", 280, 205, 220),
+  ];
+
+  const result = detectCycleBasis(rows);
+  assert.equal(result.highDate, "2020-01-15");
+  assert.equal(result.lowValue, 80);
+});
+
+test("a dip under the 20-month average that falls less than 30 percent is ignored", () => {
+  const result = detectCycleBasis([
+    ...flatHistory(),
+    row("2020-01-15", 120, 110, 118),
+    row("2020-02-14", 115, 80, 82),
+    row("2020-06-15", 130, 100, 128),
+    row("2020-07-15", 125, 95, 96),
+  ]);
+
+  assert.equal(result.highValue, 120);
+  assert.equal(result.lowValue, 80);
+});
+
+test("a rebound below the previous high never starts a new cycle", () => {
+  const result = detectCycleBasis([
+    ...flatHistory(),
+    row("2020-01-15", 120, 110, 118),
+    row("2020-02-14", 115, 80, 82),
+    row("2020-05-15", 110, 85, 108),
+    row("2020-06-15", 105, 60, 62),
+  ]);
+
+  assert.equal(result.highDate, "2020-01-15");
+  assert.equal(result.highValue, 120);
+  assert.equal(result.lowDate, "2020-06-15");
+  assert.equal(result.lowValue, 60);
+});
+
+test("the low is never taken from before the high", () => {
+  const result = detectCycleBasis([
+    ...flatHistory(),
+    row("2020-01-06", 100, 50, 95),
+    row("2020-01-20", 120, 110, 118),
+    row("2020-02-14", 115, 80, 82),
+  ]);
+
+  assert.equal(result.lowDate, "2020-02-14");
+  assert.ok(result.lowDate > result.highDate);
+});
+
+test("no basis without a qualifying fall", () => {
+  assert.equal(detectCycleBasis([...flatHistory(), row("2020-01-15", 120, 110, 118)]), null);
+});
+
+test("faint markers use the highest point after the low and the lowest point after that high", () => {
   const rows = [
     row("2021-01-29", 90, 80, 85),
     row("2021-02-26", 120, 110, 115),
@@ -89,91 +134,26 @@ test("historical faint markers use the highest point after the V-bottom and lowe
   );
 });
 
-test("breaking a confirmed V-bottom cancels it and keeps tracking the same crash", () => {
+test("while the rebound is below the previous high, the lowest record counts from that high", () => {
   const rows = [
-    row("2019-12-31", 100, 95, 98),
-    row("2020-01-31", 100, 60, 65),
-    row("2020-02-28", 85, 64, 80),
-    row("2020-03-31", 90, 78, 88),
-    row("2021-01-29", 200, 150, 190),
-    row("2021-02-26", 190, 110, 120),
-    row("2021-03-31", 150, 118, 145),
-    row("2021-04-30", 160, 140, 150),
-    row("2021-05-31", 150, 105, 108),
+    row("2021-02-26", 120, 110, 115),
+    row("2021-03-31", 100, 70, 75),
+    row("2021-04-30", 95, 72, 90),
+    row("2021-05-31", 105, 88, 100),
   ];
 
-  const confirmed = detectMajorVBottom(rows.slice(0, 8), { asOfDate: "2021-05-15" });
-  assert.equal(confirmed.highValue, 200);
-  assert.equal(confirmed.lowValue, 110);
-
-  const broken = detectMajorVBottom(rows, { asOfDate: "2021-06-15" });
-  assert.equal(broken.highValue, 100);
-  assert.equal(broken.lowValue, 60);
-
-  const reconfirmed = detectMajorVBottom(
-    [...rows, row("2021-06-30", 125, 104, 122), row("2021-07-30", 135, 120, 130), row("2021-08-31", 140, 125, 135)],
-    { asOfDate: "2021-09-15" },
+  assert.deepEqual(
+    findBasisExtremes(rows, {
+      highDate: "2021-02-26",
+      highValue: 120,
+      lowDate: "2021-03-31",
+      lowValue: 70,
+    }),
+    {
+      risePeakDate: "2021-05-31",
+      risePeakValue: 105,
+      fallPeakDate: "2021-03-31",
+      fallPeakValue: 70,
+    },
   );
-  assert.equal(reconfirmed.highDate, "2021-01-29");
-  assert.equal(reconfirmed.highValue, 200);
-  assert.equal(reconfirmed.lowDate, "2021-06-30");
-  assert.equal(reconfirmed.lowValue, 104);
-});
-
-test("a dip that holds above the confirmed V-bottom keeps the basis", () => {
-  const result = detectMajorVBottom(
-    [
-      row("2021-01-29", 200, 150, 190),
-      row("2021-02-26", 190, 110, 120),
-      row("2021-03-31", 150, 118, 145),
-      row("2021-04-30", 160, 140, 150),
-      row("2021-05-31", 150, 111, 120),
-    ],
-    { asOfDate: "2021-06-15" },
-  );
-
-  assert.equal(result.highValue, 200);
-  assert.equal(result.lowValue, 110);
-});
-
-test("a low earlier in the peak's own month is never used as the trough", () => {
-  const rows = [
-    row("2021-01-05", 100, 60, 95),
-    row("2021-01-25", 200, 150, 190),
-    row("2021-02-26", 195, 145, 150),
-    row("2021-03-31", 160, 120, 150),
-    row("2021-04-30", 170, 140, 165),
-    row("2021-05-31", 180, 150, 175),
-  ];
-
-  const result = detectMajorVBottom(rows, { asOfDate: "2021-06-15" });
-  assert.equal(result.highDate, "2021-01-25");
-  assert.equal(result.lowDate, "2021-03-31");
-  assert.equal(result.lowValue, 120);
-  assert.ok(result.lowDate > result.highDate);
-});
-
-test("a relapse from a lower recovery high that undercuts the low stays one crash", () => {
-  const rows = [
-    row("2021-01-29", 200, 150, 190),
-    row("2021-02-26", 190, 100, 110),
-    row("2021-03-31", 150, 105, 145),
-    row("2021-04-30", 180, 140, 175),
-    row("2021-05-31", 170, 120, 125),
-    row("2021-06-30", 125, 90, 95),
-    row("2021-07-30", 115, 92, 112),
-    row("2021-08-31", 125, 108, 120),
-  ];
-
-  const relapsing = detectMajorVBottom(rows.slice(0, 5), { asOfDate: "2021-06-15" });
-  assert.equal(relapsing.lowValue, 100);
-
-  const undercut = detectMajorVBottom(rows.slice(0, 6), { asOfDate: "2021-07-15" });
-  assert.equal(undercut, null);
-
-  const result = detectMajorVBottom(rows, { asOfDate: "2021-09-15" });
-  assert.equal(result.highDate, "2021-01-29");
-  assert.equal(result.highValue, 200);
-  assert.equal(result.lowDate, "2021-06-30");
-  assert.equal(result.lowValue, 90);
 });

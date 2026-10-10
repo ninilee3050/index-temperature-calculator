@@ -138,7 +138,7 @@ test("changing a basis keeps the recorded peak point and date", () => {
   assert.equal(result.risePeakReturn, 0.75);
   assert.equal(result.fallPeakValue, 110);
   assert.equal(result.fallPeakDate, "2026-01-03");
-  assert.equal(result.fallPeakReturn, -0.21428571428571427);
+  assert.equal(result.fallPeakReturn, -0.3125);
 });
 
 test("legacy percentage records migrate to absolute points before a basis edit", () => {
@@ -162,7 +162,7 @@ test("legacy percentage records migrate to absolute points before a basis edit",
 
   assert.equal(result.risePeakValue, 140);
   assert.equal(result.risePeakReturn, 0.75);
-  assert.equal(result.fallPeakValue, 112);
+  assert.equal(result.fallPeakValue, 120);
   assert.equal(result.fallPeakDate, "2026-01-03");
   assert.equal(result.fallPeakReturn, -0.2);
 });
