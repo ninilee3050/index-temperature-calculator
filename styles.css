@@ -1748,28 +1748,6 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   line-height: 1.1;
 }
 
-.chart-ranges {
-  display: flex;
-  gap: 6px;
-}
-
-.chart-range {
-  min-width: 52px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--field-surface);
-  color: var(--muted);
-  padding: 7px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.chart-range.is-active {
-  border-color: var(--accent);
-  color: var(--ink);
-}
-
 .chart-plot {
   position: relative;
   min-height: 230px;
@@ -1787,9 +1765,34 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   stroke-width: 1;
 }
 
-.chart-grid.is-zero {
+.chart-grid.is-month {
+  stroke: var(--grid-line-soft);
+}
+
+.chart-grid.is-zone {
   stroke: var(--muted);
-  stroke-dasharray: 3 3;
+  stroke-dasharray: 4 4;
+  opacity: 0.6;
+}
+
+.chart-hover[hidden] {
+  display: none;
+}
+
+.chart-grid.is-baseline {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  opacity: 0.7;
+}
+
+.chart-axis-text.is-year {
+  font-weight: 700;
+}
+
+.chart-axis-text.is-baseline {
+  fill: var(--ink);
+  font-weight: 700;
 }
 
 .chart-axis-text {

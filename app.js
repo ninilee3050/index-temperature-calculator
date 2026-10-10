@@ -62,19 +62,19 @@ const defaultState = {
 
 const macroCharts = {
   usdKrw: { label: "달러 실시간 환율", digits: 2, suffix: "" },
-  dollarIndex: { label: "달러 지수", digits: 2, suffix: "" },
-  spread10y2y: { label: "미국 장·단기 금리차 10Y-2Y", digits: 2, suffix: "%" },
-  spread10y3m: { label: "미국 장·단기 금리차 10Y-3M", digits: 2, suffix: "%" },
-  fearGreed: { label: "CNN 공포탐욕지수", digits: 0, suffix: "", domain: [0, 100] },
+  dollarIndex: { label: "달러 지수", digits: 2, suffix: "", baseline: 100 },
+  spread10y2y: { label: "미국 장·단기 금리차 10Y-2Y", digits: 2, suffix: "%", baseline: 0 },
+  spread10y3m: { label: "미국 장·단기 금리차 10Y-3M", digits: 2, suffix: "%", baseline: 0 },
+  fearGreed: {
+    label: "CNN 공포탐욕지수",
+    digits: 0,
+    suffix: "",
+    ticks: [0, 25, 45, 55, 75, 100],
+    zones: ["극단적 공포", "공포", "중립", "탐욕", "극단적 탐욕"],
+  },
 };
 
-const chartRanges = [
-  ["3m", "3개월"],
-  ["1y", "1년"],
-  ["5y", "5년"],
-];
-
-let chartView = { key: null, range: "1y", points: [], layout: null, requestId: 0 };
+let chartView = { key: null, points: [], layout: null, requestId: 0 };
 
 const rangeGroups = [
   {
@@ -223,12 +223,6 @@ function setupActions() {
 
     if (button.dataset.action === "show-macro-chart") {
       openMacroChart(button.dataset.key);
-      return;
-    }
-
-    if (button.dataset.action === "set-chart-range") {
-      chartView.range = button.dataset.range;
-      loadMacroChart();
       return;
     }
 
@@ -1124,10 +1118,9 @@ function openMacroChart(key) {
 async function loadMacroChart() {
   const requestId = chartView.requestId + 1;
   chartView = { ...chartView, requestId, points: [], layout: null };
-  renderChartRanges();
   setChartMessage("차트 데이터를 불러오는 중");
   try {
-    const params = new URLSearchParams({ key: chartView.key, range: chartView.range });
+    const params = new URLSearchParams({ key: chartView.key, range: "1y" });
     const response = await fetch(`/api/macro-history?${params}`, { cache: "no-store" });
     const payload = await response.json();
     if (chartView.requestId !== requestId) return;
@@ -1142,15 +1135,6 @@ async function loadMacroChart() {
   }
 }
 
-function renderChartRanges() {
-  document.querySelector("[data-chart-ranges]").innerHTML = chartRanges
-    .map(
-      ([range, label]) =>
-        `<button type="button" class="chart-range ${range === chartView.range ? "is-active" : ""}" data-action="set-chart-range" data-range="${range}" aria-pressed="${range === chartView.range}">${label}</button>`,
-    )
-    .join("");
-}
-
 function setChartMessage(message) {
   document.querySelector("[data-chart-summary]").textContent = "";
   document.querySelector("[data-chart-plot]").innerHTML = `<p class="chart-message">${message}</p>`;
@@ -1162,8 +1146,8 @@ function renderMacroChart() {
   if (!config || !points.length) return;
   const plot = document.querySelector("[data-chart-plot]");
   const width = Math.max(plot.clientWidth, 280);
-  const height = width < 520 ? 230 : 300;
-  const { svg, layout } = buildChartSvg(points, config, width, height, chartView.range);
+  const height = width < 520 ? 244 : 314;
+  const { svg, layout } = buildChartSvg(points, config, width, height);
   chartView.layout = layout;
   plot.innerHTML = `${svg}<div class="chart-tooltip" hidden></div>`;
 
@@ -1172,19 +1156,25 @@ function renderMacroChart() {
   document.querySelector("[data-chart-summary]").innerHTML = `
     <strong>${formatChartValue(last.value, config)}</strong>
     <span>${last.date} · ${chartView.source || ""}</span>
-    <span>기간 최저 ${formatChartValue(Math.min(...values), config)} · 최고 ${formatChartValue(Math.max(...values), config)}</span>
+    <span>최근 1년 최저 ${formatChartValue(Math.min(...values), config)} · 최고 ${formatChartValue(Math.max(...values), config)}</span>
   `;
 }
 
-// One series: dates run left to right, values bottom to top, newest point on the right edge.
-function buildChartSvg(points, config, width, height, range = "1y") {
-  const margin = { top: 14, right: 18, bottom: 26, left: 54 };
+// One year of one series: a grid line per month, newest point on the right edge.
+function buildChartSvg(points, config, width, height) {
+  const margin = { top: 14, right: config.zones ? 70 : 18, bottom: 40, left: 54 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
+  const plotRight = margin.left + plotWidth;
+  const plotBottom = margin.top + plotHeight;
   const values = points.map((point) => point.value);
-  const ticks = config.domain
-    ? [0, 25, 50, 75, 100].map((ratio) => config.domain[0] + ((config.domain[1] - config.domain[0]) * ratio) / 100)
-    : niceTicks(Math.min(...values), Math.max(...values));
+  const hasBaseline = Number.isFinite(config.baseline);
+  const ticks =
+    config.ticks ||
+    niceTicks(
+      Math.min(...values, ...(hasBaseline ? [config.baseline] : [])),
+      Math.max(...values, ...(hasBaseline ? [config.baseline] : [])),
+    );
   const [low, high] = [ticks[0], ticks.at(-1)];
   const step = ticks[1] - ticks[0];
   const tickDigits = Math.max(0, Math.min(config.digits, -Math.floor(Math.log10(step))));
@@ -1195,31 +1185,75 @@ function buildChartSvg(points, config, width, height, range = "1y") {
   const ys = values.map(toY);
   const path = xs.map((x, index) => `${index ? "L" : "M"}${x.toFixed(1)} ${ys[index].toFixed(1)}`).join(" ");
 
-  const gridLines = ticks
+  const valueLines = ticks
     .map((tick) => {
       const y = toY(tick).toFixed(1);
-      const isZero = tick === 0 && low < 0;
-      return `<line class="chart-grid ${isZero ? "is-zero" : ""}" x1="${margin.left}" x2="${width - margin.right}" y1="${y}" y2="${y}" />
-        <text class="chart-axis-text" x="${margin.left - 8}" y="${y}" text-anchor="end" dominant-baseline="middle">${formatNumber(tick, tickDigits)}${config.suffix}</text>`;
+      const isBaseline = hasBaseline && tick === config.baseline;
+      const lineKind = isBaseline ? "is-baseline" : config.zones ? "is-zone" : "";
+      return `<line class="chart-grid ${lineKind}" x1="${margin.left}" x2="${plotRight}" y1="${y}" y2="${y}" />
+        <text class="chart-axis-text ${isBaseline ? "is-baseline" : ""}" x="${margin.left - 8}" y="${y}" text-anchor="end" dominant-baseline="middle">${formatNumber(tick, tickDigits)}${config.suffix}</text>`;
     })
     .join("");
-  const labelCount = Math.min(width < 520 ? 3 : 5, points.length);
-  const dateLabels = Array.from({ length: labelCount }, (_, labelIndex) => {
-    const index = labelCount === 1 ? 0 : Math.round(((points.length - 1) * labelIndex) / (labelCount - 1));
-    const anchor = labelIndex === 0 ? "start" : labelIndex === labelCount - 1 ? "end" : "middle";
-    return `<text class="chart-axis-text" x="${xs[index].toFixed(1)}" y="${height - 6}" text-anchor="${anchor}">${formatChartDate(points[index].date, range)}</text>`;
-  }).join("");
-  const lastX = xs.at(-1).toFixed(1);
-  const lastY = ys.at(-1).toFixed(1);
+  const zoneLabels = (config.zones || [])
+    .map((zone, index) => {
+      const y = ((toY(ticks[index]) + toY(ticks[index + 1])) / 2).toFixed(1);
+      return `<text class="chart-axis-text" x="${plotRight + 8}" y="${y}" dominant-baseline="middle">${zone}</text>`;
+    })
+    .join("");
+
+  // Month starts: the first point of each calendar month.
+  const monthStarts = points
+    .map((point, index) => ({ index, month: point.date.slice(0, 7) }))
+    .filter(({ index, month }) => index > 0 && month !== points[index - 1].date.slice(0, 7));
+  const monthGap = monthStarts.length > 1 ? plotWidth / monthStarts.length : plotWidth;
+  const monthLabels = monthStarts.map(({ index, month }) => {
+    const [year, monthNumber] = month.split("-").map(Number);
+    const text = monthGap >= 34 ? `${monthNumber}월` : String(monthNumber);
+    const halfWidth = (String(monthNumber).length * 6.4 + (monthGap >= 34 ? 11 : 0)) / 2;
+    // Keep the label inside the plot: slide it inward when the month starts near an edge.
+    const x = Math.min(Math.max(xs[index], margin.left + halfWidth), plotRight - halfWidth);
+    return { x, halfWidth, text, year, isJanuary: monthNumber === 1 };
+  });
+  const placedLabels = [];
+  monthLabels.forEach((label) => {
+    const previous = placedLabels.at(-1);
+    if (!previous || label.x - previous.x >= previous.halfWidth + label.halfWidth) placedLabels.push(label);
+  });
+  // Years go on their own row: at the left edge and under each January.
+  const yearLabels = monthLabels
+    .filter((label) => label.isJanuary)
+    .map((label) => ({ x: Math.min(Math.max(label.x, margin.left + 14), plotRight - 14), text: `${label.year}년` }));
+  const firstYear = { x: margin.left + 14, text: `${points[0].date.slice(0, 4)}년` };
+  if (!yearLabels.some((label) => label.x - firstYear.x < 40)) yearLabels.unshift(firstYear);
+  const monthLines =
+    monthStarts
+      .map(({ index }) => {
+        const x = xs[index].toFixed(1);
+        return `<line class="chart-grid is-month" x1="${x}" x2="${x}" y1="${margin.top}" y2="${plotBottom}" />`;
+      })
+      .join("") +
+    placedLabels
+      .map(
+        (label) =>
+          `<text class="chart-axis-text" x="${label.x.toFixed(1)}" y="${plotBottom + 15}" text-anchor="middle">${label.text}</text>`,
+      )
+      .join("") +
+    yearLabels
+      .map(
+        (label) =>
+          `<text class="chart-axis-text is-year" x="${label.x.toFixed(1)}" y="${plotBottom + 31}" text-anchor="middle">${label.text}</text>`,
+      )
+      .join("");
 
   const svg = `
     <svg class="chart-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${config.label} ${points[0].date}부터 ${points.at(-1).date}까지의 추이">
-      ${gridLines}
-      ${dateLabels}
+      ${monthLines}
+      ${valueLines}
+      ${zoneLabels}
       <path class="chart-line" d="${path}" />
-      <circle class="chart-end-dot" cx="${lastX}" cy="${lastY}" r="4" />
+      <circle class="chart-end-dot" cx="${xs.at(-1).toFixed(1)}" cy="${ys.at(-1).toFixed(1)}" r="4" />
       <g class="chart-hover" data-chart-hover hidden>
-        <line class="chart-crosshair" y1="${margin.top}" y2="${margin.top + plotHeight}" />
+        <line class="chart-crosshair" y1="${margin.top}" y2="${plotBottom}" />
         <circle class="chart-hover-dot" r="4.5" />
       </g>
     </svg>`;
@@ -1242,11 +1276,6 @@ function niceTicks(min, max, count = 4) {
 
 function formatChartValue(value, config) {
   return `${formatNumber(value, config.digits)}${config.suffix}`;
-}
-
-function formatChartDate(date, range) {
-  const [year, month, day] = String(date).split("-");
-  return range === "3m" ? `${month}.${day}` : `${year.slice(2)}.${month}`;
 }
 
 function showChartHover(plot, clientX) {

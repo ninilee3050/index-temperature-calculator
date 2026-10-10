@@ -313,43 +313,60 @@ test("elapsed time counts leftover days and switches to days under a month", () 
   assert.deepEqual(result.monthEnd, { short: "1개월", full: "1개월 1일" });
 });
 
-test("macro chart draws one line with the newest point at the right edge", () => {
+test("macro chart draws one line with a grid line and label for every month", () => {
   const result = runScenario(`() => {
     const points = [
-      { date: "2026-07-01", value: 1380.5 },
-      { date: "2026-08-03", value: 1362.1 },
-      { date: "2026-09-01", value: 1351.4 },
-      { date: "2026-10-09", value: 1340.9 },
+      { date: "2025-12-30", value: 1380.5 },
+      { date: "2026-01-02", value: 1362.1 },
+      { date: "2026-01-30", value: 1358.0 },
+      { date: "2026-02-02", value: 1351.4 },
+      { date: "2026-03-02", value: 1340.9 },
     ];
-    const { svg, layout } = buildChartSvg(points, macroCharts.usdKrw, 600, 300, "1y");
+    const { svg, layout } = buildChartSvg(points, macroCharts.usdKrw, 600, 300);
     return { svg, xs: layout.xs, ys: layout.ys, right: 600 - 18, ticks: niceTicks(1340.9, 1380.5) };
   }`);
 
-  assert.equal(result.xs.length, 4);
+  assert.equal(result.xs.length, 5);
   assert.equal(result.xs.at(-1), result.right);
   assert.ok(result.ys[0] < result.ys.at(-1));
   assert.deepEqual(result.ticks, [1340, 1350, 1360, 1370, 1380, 1390]);
   assert.match(result.svg, /class="chart-line" d="M54\.0 /);
-  assert.match(result.svg, />26\.07</);
-  assert.match(result.svg, />26\.10</);
+  assert.equal(result.svg.match(/chart-grid is-month/g).length, 3);
+  assert.match(result.svg, />1월</);
+  assert.match(result.svg, />2025년</);
+  assert.match(result.svg, />2026년</);
+  assert.match(result.svg, />2월</);
+  assert.doesNotMatch(result.svg, /is-baseline/);
 });
 
-test("fear and greed chart keeps a fixed 0 to 100 scale and spreads show a zero line", () => {
-  const result = runScenario(`() => {
-    const fear = buildChartSvg(
-      [{ date: "2026-10-08", value: 38 }, { date: "2026-10-09", value: 45 }],
-      macroCharts.fearGreed, 600, 300, "3m",
-    );
-    const spread = buildChartSvg(
-      [{ date: "2023-07-03", value: -1.08 }, { date: "2026-10-09", value: 0.44 }],
-      macroCharts.spread10y2y, 600, 300, "5y",
-    );
-    return { fear: fear.svg, spread: spread.svg };
-  }`);
+test("dollar index and spreads get a reference line even when the data stays on one side", () => {
+  const result = runScenario(`() => ({
+    dollar: buildChartSvg(
+      [{ date: "2026-09-01", value: 102.9 }, { date: "2026-10-09", value: 104.2 }],
+      macroCharts.dollarIndex, 600, 300,
+    ).svg,
+    spread: buildChartSvg(
+      [{ date: "2026-09-01", value: 0.31 }, { date: "2026-10-09", value: 0.44 }],
+      macroCharts.spread10y2y, 600, 300,
+    ).svg,
+  })`);
 
-  assert.match(result.fear, />100</);
-  assert.match(result.fear, />0</);
-  assert.match(result.fear, />10\.09</);
-  assert.match(result.spread, /chart-grid is-zero/);
-  assert.match(result.spread, />-1\.0%</);
+  assert.match(result.dollar, /class="chart-grid is-baseline"/);
+  assert.match(result.dollar, /class="chart-axis-text is-baseline"[^>]*>100</);
+  assert.match(result.spread, /class="chart-axis-text is-baseline"[^>]*>0\.0%</);
+});
+
+test("fear and greed chart draws the zone boundaries and names each zone", () => {
+  const svg = runScenario(`() => buildChartSvg(
+    [{ date: "2026-10-08", value: 38 }, { date: "2026-10-09", value: 45 }],
+    macroCharts.fearGreed, 600, 300,
+  ).svg`);
+
+  for (const boundary of [0, 25, 45, 55, 75, 100]) {
+    assert.match(svg, new RegExp(`dominant-baseline="middle">${boundary}<`));
+  }
+  assert.equal(svg.match(/class="chart-grid is-zone"/g).length, 6);
+  for (const zone of ["극단적 공포", "공포", "중립", "탐욕", "극단적 탐욕"]) {
+    assert.match(svg, new RegExp(`>${zone}<`));
+  }
 });
