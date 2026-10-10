@@ -312,3 +312,44 @@ test("elapsed time counts leftover days and switches to days under a month", () 
   assert.deepEqual(result.mixed, { short: "3개월", full: "3개월 19일" });
   assert.deepEqual(result.monthEnd, { short: "1개월", full: "1개월 1일" });
 });
+
+test("macro chart draws one line with the newest point at the right edge", () => {
+  const result = runScenario(`() => {
+    const points = [
+      { date: "2026-07-01", value: 1380.5 },
+      { date: "2026-08-03", value: 1362.1 },
+      { date: "2026-09-01", value: 1351.4 },
+      { date: "2026-10-09", value: 1340.9 },
+    ];
+    const { svg, layout } = buildChartSvg(points, macroCharts.usdKrw, 600, 300, "1y");
+    return { svg, xs: layout.xs, ys: layout.ys, right: 600 - 18, ticks: niceTicks(1340.9, 1380.5) };
+  }`);
+
+  assert.equal(result.xs.length, 4);
+  assert.equal(result.xs.at(-1), result.right);
+  assert.ok(result.ys[0] < result.ys.at(-1));
+  assert.deepEqual(result.ticks, [1340, 1350, 1360, 1370, 1380, 1390]);
+  assert.match(result.svg, /class="chart-line" d="M54\.0 /);
+  assert.match(result.svg, />26\.07</);
+  assert.match(result.svg, />26\.10</);
+});
+
+test("fear and greed chart keeps a fixed 0 to 100 scale and spreads show a zero line", () => {
+  const result = runScenario(`() => {
+    const fear = buildChartSvg(
+      [{ date: "2026-10-08", value: 38 }, { date: "2026-10-09", value: 45 }],
+      macroCharts.fearGreed, 600, 300, "3m",
+    );
+    const spread = buildChartSvg(
+      [{ date: "2023-07-03", value: -1.08 }, { date: "2026-10-09", value: 0.44 }],
+      macroCharts.spread10y2y, 600, 300, "5y",
+    );
+    return { fear: fear.svg, spread: spread.svg };
+  }`);
+
+  assert.match(result.fear, />100</);
+  assert.match(result.fear, />0</);
+  assert.match(result.fear, />10\.09</);
+  assert.match(result.spread, /chart-grid is-zero/);
+  assert.match(result.spread, />-1\.0%</);
+});

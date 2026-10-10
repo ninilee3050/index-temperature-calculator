@@ -58,6 +58,25 @@
       </main>
     </div>
 
+    <dialog class="settings-dialog chart-dialog" data-chart-dialog>
+      <form method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Chart</p>
+            <h2 data-chart-title>차트</h2>
+          </div>
+          <button class="icon-button" type="submit" aria-label="닫기">×</button>
+        </div>
+        <div class="chart-body">
+          <div class="chart-toolbar">
+            <div class="chart-summary" data-chart-summary></div>
+            <div class="chart-ranges" data-chart-ranges></div>
+          </div>
+          <div class="chart-plot" data-chart-plot></div>
+        </div>
+      </form>
+    </dialog>
+
     <dialog class="settings-dialog" data-settings-dialog>
       <form method="dialog">
         <div class="dialog-head">

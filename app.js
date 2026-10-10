@@ -60,6 +60,22 @@ const defaultState = {
   },
 };
 
+const macroCharts = {
+  usdKrw: { label: "달러 실시간 환율", digits: 2, suffix: "" },
+  dollarIndex: { label: "달러 지수", digits: 2, suffix: "" },
+  spread10y2y: { label: "미국 장·단기 금리차 10Y-2Y", digits: 2, suffix: "%" },
+  spread10y3m: { label: "미국 장·단기 금리차 10Y-3M", digits: 2, suffix: "%" },
+  fearGreed: { label: "CNN 공포탐욕지수", digits: 0, suffix: "", domain: [0, 100] },
+};
+
+const chartRanges = [
+  ["3m", "3개월"],
+  ["1y", "1년"],
+  ["5y", "5년"],
+];
+
+let chartView = { key: null, range: "1y", points: [], layout: null, requestId: 0 };
+
 const rangeGroups = [
   {
     label: "초과상승 구간",
@@ -135,6 +151,7 @@ let state = normalizeState(loadState());
 document.addEventListener("DOMContentLoaded", () => {
   setupTheme();
   setupActions();
+  setupMacroChart();
   setupAutoHideTopNav();
   setupServerHeartbeat();
   renderAll();
@@ -201,6 +218,17 @@ function setupActions() {
 
     if (button.dataset.action === "toggle-theme") {
       toggleTheme();
+      return;
+    }
+
+    if (button.dataset.action === "show-macro-chart") {
+      openMacroChart(button.dataset.key);
+      return;
+    }
+
+    if (button.dataset.action === "set-chart-range") {
+      chartView.range = button.dataset.range;
+      loadMacroChart();
       return;
     }
 
@@ -744,17 +772,18 @@ function thermometerRowKey(kind, row) {
 }
 
 function renderMacroList() {
-  const macros = [
-    ["달러 실시간 환율", formatNumber(Number(state.macro.usdKrw), 2), state.macroMeta.usdKrw],
-    ["달러 지수", formatMaybeNumber(state.macro.dollarIndex), state.macroMeta.dollarIndex],
-    ["미국 장·단기 금리차 10Y-2Y", state.macro.spread10y2y, state.macroMeta.spread10y2y],
-    ["미국 장·단기 금리차 10Y-3M", state.macro.spread10y3m, state.macroMeta.spread10y3m],
-    ["CNN 공포탐욕지수", formatFearGreedValue(), state.macroMeta.fearGreed],
-  ];
-  document.querySelector("[data-macro-list]").innerHTML = macros
+  const values = {
+    usdKrw: formatNumber(Number(state.macro.usdKrw), 2),
+    dollarIndex: formatMaybeNumber(state.macro.dollarIndex),
+    spread10y2y: state.macro.spread10y2y,
+    spread10y3m: state.macro.spread10y3m,
+    fearGreed: formatFearGreedValue(),
+  };
+  document.querySelector("[data-macro-list]").innerHTML = Object.entries(macroCharts)
+    .map(([key, { label }]) => [key, label, values[key], state.macroMeta[key]])
     .map(
-      ([label, value, meta]) => `
-      <div>
+      ([key, label, value, meta]) => `
+      <div role="button" tabindex="0" data-action="show-macro-chart" data-key="${key}" title="${label} 차트 보기">
         <dt>${label}</dt>
         <dd>${value || "-"}</dd>
         ${meta ? `<small>${macroMetaText(meta)}</small>` : ""}
@@ -1063,4 +1092,189 @@ function showToast(message, duration = 2200) {
   toast.textContent = message;
   document.body.appendChild(toast);
   window.setTimeout(() => toast.remove(), duration);
+}
+
+function setupMacroChart() {
+  const plot = document.querySelector("[data-chart-plot]");
+  if (!plot) return;
+  plot.addEventListener("pointermove", (event) => showChartHover(plot, event.clientX));
+  plot.addEventListener("pointerdown", (event) => showChartHover(plot, event.clientX));
+  plot.addEventListener("pointerleave", () => hideChartHover(plot));
+  window.addEventListener("resize", () => {
+    if (document.querySelector("[data-chart-dialog]")?.open) renderMacroChart();
+  });
+  document.body.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const card = event.target.closest?.('[data-action="show-macro-chart"]');
+    if (!card) return;
+    event.preventDefault();
+    openMacroChart(card.dataset.key);
+  });
+}
+
+function openMacroChart(key) {
+  if (!macroCharts[key]) return;
+  chartView = { ...chartView, key, points: [], layout: null };
+  document.querySelector("[data-chart-title]").textContent = macroCharts[key].label;
+  const dialog = document.querySelector("[data-chart-dialog]");
+  if (!dialog.open) dialog.showModal();
+  loadMacroChart();
+}
+
+async function loadMacroChart() {
+  const requestId = chartView.requestId + 1;
+  chartView = { ...chartView, requestId, points: [], layout: null };
+  renderChartRanges();
+  setChartMessage("차트 데이터를 불러오는 중");
+  try {
+    const params = new URLSearchParams({ key: chartView.key, range: chartView.range });
+    const response = await fetch(`/api/macro-history?${params}`, { cache: "no-store" });
+    const payload = await response.json();
+    if (chartView.requestId !== requestId) return;
+    if (!response.ok || !payload.ok || !payload.points?.length) {
+      throw new Error(payload.error || "empty");
+    }
+    chartView.points = payload.points;
+    chartView.source = payload.source;
+    renderMacroChart();
+  } catch {
+    if (chartView.requestId === requestId) setChartMessage("차트 데이터를 불러오지 못했습니다.");
+  }
+}
+
+function renderChartRanges() {
+  document.querySelector("[data-chart-ranges]").innerHTML = chartRanges
+    .map(
+      ([range, label]) =>
+        `<button type="button" class="chart-range ${range === chartView.range ? "is-active" : ""}" data-action="set-chart-range" data-range="${range}" aria-pressed="${range === chartView.range}">${label}</button>`,
+    )
+    .join("");
+}
+
+function setChartMessage(message) {
+  document.querySelector("[data-chart-summary]").textContent = "";
+  document.querySelector("[data-chart-plot]").innerHTML = `<p class="chart-message">${message}</p>`;
+}
+
+function renderMacroChart() {
+  const { key, points } = chartView;
+  const config = macroCharts[key];
+  if (!config || !points.length) return;
+  const plot = document.querySelector("[data-chart-plot]");
+  const width = Math.max(plot.clientWidth, 280);
+  const height = width < 520 ? 230 : 300;
+  const { svg, layout } = buildChartSvg(points, config, width, height, chartView.range);
+  chartView.layout = layout;
+  plot.innerHTML = `${svg}<div class="chart-tooltip" hidden></div>`;
+
+  const values = points.map((point) => point.value);
+  const last = points.at(-1);
+  document.querySelector("[data-chart-summary]").innerHTML = `
+    <strong>${formatChartValue(last.value, config)}</strong>
+    <span>${last.date} · ${chartView.source || ""}</span>
+    <span>기간 최저 ${formatChartValue(Math.min(...values), config)} · 최고 ${formatChartValue(Math.max(...values), config)}</span>
+  `;
+}
+
+// One series: dates run left to right, values bottom to top, newest point on the right edge.
+function buildChartSvg(points, config, width, height, range = "1y") {
+  const margin = { top: 14, right: 18, bottom: 26, left: 54 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const values = points.map((point) => point.value);
+  const ticks = config.domain
+    ? [0, 25, 50, 75, 100].map((ratio) => config.domain[0] + ((config.domain[1] - config.domain[0]) * ratio) / 100)
+    : niceTicks(Math.min(...values), Math.max(...values));
+  const [low, high] = [ticks[0], ticks.at(-1)];
+  const step = ticks[1] - ticks[0];
+  const tickDigits = Math.max(0, Math.min(config.digits, -Math.floor(Math.log10(step))));
+  const xs = points.map((_, index) =>
+    margin.left + (points.length === 1 ? plotWidth : (plotWidth * index) / (points.length - 1)),
+  );
+  const toY = (value) => margin.top + plotHeight * (1 - (value - low) / (high - low));
+  const ys = values.map(toY);
+  const path = xs.map((x, index) => `${index ? "L" : "M"}${x.toFixed(1)} ${ys[index].toFixed(1)}`).join(" ");
+
+  const gridLines = ticks
+    .map((tick) => {
+      const y = toY(tick).toFixed(1);
+      const isZero = tick === 0 && low < 0;
+      return `<line class="chart-grid ${isZero ? "is-zero" : ""}" x1="${margin.left}" x2="${width - margin.right}" y1="${y}" y2="${y}" />
+        <text class="chart-axis-text" x="${margin.left - 8}" y="${y}" text-anchor="end" dominant-baseline="middle">${formatNumber(tick, tickDigits)}${config.suffix}</text>`;
+    })
+    .join("");
+  const labelCount = Math.min(width < 520 ? 3 : 5, points.length);
+  const dateLabels = Array.from({ length: labelCount }, (_, labelIndex) => {
+    const index = labelCount === 1 ? 0 : Math.round(((points.length - 1) * labelIndex) / (labelCount - 1));
+    const anchor = labelIndex === 0 ? "start" : labelIndex === labelCount - 1 ? "end" : "middle";
+    return `<text class="chart-axis-text" x="${xs[index].toFixed(1)}" y="${height - 6}" text-anchor="${anchor}">${formatChartDate(points[index].date, range)}</text>`;
+  }).join("");
+  const lastX = xs.at(-1).toFixed(1);
+  const lastY = ys.at(-1).toFixed(1);
+
+  const svg = `
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${config.label} ${points[0].date}부터 ${points.at(-1).date}까지의 추이">
+      ${gridLines}
+      ${dateLabels}
+      <path class="chart-line" d="${path}" />
+      <circle class="chart-end-dot" cx="${lastX}" cy="${lastY}" r="4" />
+      <g class="chart-hover" data-chart-hover hidden>
+        <line class="chart-crosshair" y1="${margin.top}" y2="${margin.top + plotHeight}" />
+        <circle class="chart-hover-dot" r="4.5" />
+      </g>
+    </svg>`;
+  return { svg, layout: { left: margin.left, plotWidth, width, xs, ys } };
+}
+
+function niceTicks(min, max, count = 4) {
+  const span = max - min || Math.abs(max) || 1;
+  const rawStep = span / count;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const normalized = rawStep / magnitude;
+  const step = (normalized < 1.5 ? 1 : normalized < 3 ? 2 : normalized < 7 ? 5 : 10) * magnitude;
+  const start = Math.floor(min / step) * step;
+  const ticks = [];
+  for (let index = 0; start + step * index < max + step; index += 1) {
+    ticks.push(Number((start + step * index).toFixed(10)));
+  }
+  return ticks.length > 1 ? ticks : [start, start + step];
+}
+
+function formatChartValue(value, config) {
+  return `${formatNumber(value, config.digits)}${config.suffix}`;
+}
+
+function formatChartDate(date, range) {
+  const [year, month, day] = String(date).split("-");
+  return range === "3m" ? `${month}.${day}` : `${year.slice(2)}.${month}`;
+}
+
+function showChartHover(plot, clientX) {
+  const { layout, points, key } = chartView;
+  const hover = plot.querySelector("[data-chart-hover]");
+  const tooltip = plot.querySelector(".chart-tooltip");
+  if (!layout || !hover || !tooltip || !points.length) return;
+  const rect = plot.getBoundingClientRect();
+  const ratio = (clientX - rect.left - layout.left) / layout.plotWidth;
+  const index = Math.min(Math.max(Math.round(ratio * (points.length - 1)), 0), points.length - 1);
+  const x = layout.xs[index];
+  const y = layout.ys[index];
+  hover.removeAttribute("hidden");
+  const line = hover.querySelector("line");
+  line.setAttribute("x1", x);
+  line.setAttribute("x2", x);
+  const dot = hover.querySelector("circle");
+  dot.setAttribute("cx", x);
+  dot.setAttribute("cy", y);
+  tooltip.hidden = false;
+  tooltip.innerHTML = `<strong>${formatChartValue(points[index].value, macroCharts[key])}</strong><span>${points[index].date}</span>`;
+  const onRightHalf = x > layout.width / 2;
+  tooltip.style.left = onRightHalf ? "" : `${x + 12}px`;
+  tooltip.style.right = onRightHalf ? `${layout.width - x + 12}px` : "";
+}
+
+function hideChartHover(plot) {
+  plot.querySelector("[data-chart-hover]")?.setAttribute("hidden", "");
+  const tooltip = plot.querySelector(".chart-tooltip");
+  if (tooltip) tooltip.hidden = true;
 }
