@@ -27,12 +27,6 @@ const defaultState = {
     updatedAt: null,
     errors: [],
   },
-  yieldCycles: {
-    status: "양전 구간 대기 중",
-    updatedAt: null,
-    values: {},
-    errors: [],
-  },
   markets: {
     korea: {
       autoBasis: true,
@@ -136,83 +130,6 @@ function descendingTenths(start, end) {
   );
 }
 
-const historyRows = [
-  {
-    year: 1989,
-    crisis: "일본 버블 붕괴",
-    highDate: "1989-04-03",
-    highValue: 1015.75,
-    lowDate: "1992-08-21",
-    lowValue: 456.59,
-  },
-  {
-    year: 1998,
-    crisis: "IMF 외환위기",
-    highDate: "1994-11-09",
-    highValue: 1145.66,
-    lowDate: "1998-06-16",
-    lowValue: 277.37,
-  },
-  {
-    year: 2000,
-    crisis: "IT 버블 붕괴",
-    highDate: "2000-01-04",
-    highValue: 1066.18,
-    lowDate: "2001-09-21",
-    lowValue: 463.54,
-  },
-  {
-    year: 2002,
-    crisis: "국제 정세 불안",
-    highDate: "2002-04-22",
-    highValue: 943.54,
-    lowDate: "2003-03-17",
-    lowValue: 512.3,
-  },
-  {
-    year: 2008,
-    crisis: "서브프라임",
-    highDate: "2007-11-01",
-    highValue: 2085.45,
-    lowDate: "2008-10-27",
-    lowValue: 892.16,
-  },
-  {
-    year: 2019,
-    crisis: "코로나19",
-    highDate: "2018-01-29",
-    highValue: 2607.1,
-    lowDate: "2020-03-19",
-    lowValue: 1439.43,
-  },
-  {
-    year: 2022,
-    crisis: "국제 정세 불안",
-    highDate: "2021-06-25",
-    highValue: 3316.08,
-    lowDate: "2022-09-30",
-    lowValue: 2134.77,
-  },
-];
-
-const crisisTypes = [
-  {
-    title: "1. 외환 위기",
-    example: "한국 IMF",
-    body: "통화 가치 하락, 외부 부채 증가, 외국 환금 부족으로 인해 외환 시장의 급격한 불안정성이 발생하는 상황.",
-  },
-  {
-    title: "2. 재정 위기",
-    example: "그리스 파산",
-    body: "지출 초과, 부채 증가, 경제 둔화 등으로 정부나 기업의 재정 상태가 악화되는 상황.",
-  },
-  {
-    title: "3. 금융 위기",
-    example: "서브프라임",
-    body: "금융 시스템 불안정, 금융 기관 파산, 자금 흐름 중단 등이 경제에 큰 충격을 주는 상황.",
-  },
-];
-
 let state = normalizeState(loadState());
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -226,20 +143,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   refreshMarketBasis({ quiet: true });
 });
-
-function setupTabs() {
-  document.querySelectorAll("[data-view]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const view = button.dataset.view;
-      document.querySelectorAll("[data-view]").forEach((tab) => {
-        tab.classList.toggle("is-active", tab === button);
-      });
-      document.querySelectorAll(".view").forEach((panel) => {
-        panel.classList.toggle("is-active", panel.id === `${view}-view`);
-      });
-    });
-  });
-}
 
 function setupServerHeartbeat() {
   if (location.protocol === "file:") return;
@@ -291,14 +194,6 @@ function setupActions() {
       return;
     }
 
-    if (button.dataset.action === "reset") {
-      state = clone(defaultState);
-      saveState();
-      renderAll();
-      showToast("초기값으로 복원했습니다.");
-      return;
-    }
-
     if (button.dataset.action === "refresh-data") {
       refreshAllData();
       return;
@@ -311,23 +206,6 @@ function setupActions() {
 
     if (button.dataset.action === "open-settings") {
       openSettingsDialog(button.dataset.market);
-      return;
-    }
-
-    if (button.dataset.action === "export") {
-      const payload = {
-        savedAt: new Date().toISOString(),
-        state,
-        computed: buildComputedSnapshot(),
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `지수-구간-계산-${state.asOfDate || "export"}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-      showToast("JSON 파일을 저장했습니다.");
     }
   });
 }
@@ -415,7 +293,7 @@ async function refreshLiveData({ quiet = false } = {}) {
       updatedAt: null,
       errors: [],
     };
-    renderLiveStatus();
+    renderTopTimestamp();
     if (!quiet) showToast("앱 서버 주소로 열면 시장 데이터를 불러옵니다.");
     return { ok: true, failedKeys: [] };
   }
@@ -425,7 +303,7 @@ async function refreshLiveData({ quiet = false } = {}) {
     updatedAt: state.liveData.updatedAt,
     errors: [],
   };
-  renderLiveStatus();
+  renderTopTimestamp();
 
   try {
     const response = await fetch("/api/macro", { cache: "no-store" });
@@ -459,54 +337,9 @@ async function refreshLiveData({ quiet = false } = {}) {
       failed: true,
       errors: [{ key: "network", error: String(error.message || error) }],
     };
-    renderLiveStatus();
+    renderTopTimestamp();
     if (!quiet) showToast("시장 데이터를 불러오지 못했습니다.");
     return { ok: false, failedKeys: [] };
-  }
-}
-
-async function refreshYieldCycles({ quiet = false } = {}) {
-  if (location.protocol === "file:") {
-    state.yieldCycles = {
-      status: "양전 분석은 로컬 서버 주소로 열면 작동합니다",
-      updatedAt: null,
-      values: state.yieldCycles.values || {},
-      errors: [],
-    };
-    renderYieldCycles();
-    return;
-  }
-
-  state.yieldCycles = {
-    ...state.yieldCycles,
-    status: "양전 구간 계산 중",
-    errors: [],
-  };
-  renderYieldCycles();
-
-  try {
-    const response = await fetch(`/api/yield-cycles?t=${Date.now()}`, { cache: "no-store" });
-    const payload = await response.json();
-    if (!response.ok || !payload.ok) {
-      throw new Error(payload.error || "양전 분석 응답이 비어 있습니다.");
-    }
-    state.yieldCycles = {
-      status: payload.errors?.length ? "양전 구간 일부 계산 완료" : "양전 구간 계산 완료",
-      updatedAt: payload.updatedAt,
-      values: payload.values || {},
-      errors: payload.errors || [],
-    };
-    saveState();
-    renderYieldCycles();
-    if (!quiet) showToast("금리차 데이터를 갱신했습니다.");
-  } catch (error) {
-    state.yieldCycles = {
-      ...state.yieldCycles,
-      status: "양전 구간 계산 실패",
-      errors: [{ key: "network", error: String(error.message || error) }],
-    };
-    renderYieldCycles();
-    if (!quiet) showToast("금리차 데이터를 갱신하지 못했습니다.");
   }
 }
 
@@ -628,14 +461,13 @@ function renderAll(options = {}) {
   renderBoundInputs(options.keepFocus);
   renderMarketThermometers();
   renderMacroList();
-  renderLiveStatus();
   renderTopTimestamp();
 }
 
 function renderTopTimestamp() {
   const target = document.querySelector("[data-date-badge]");
   if (!target) return;
-  const updatedAt = state.liveData?.updatedAt || state.yieldCycles?.updatedAt;
+  const updatedAt = state.liveData?.updatedAt;
   const label = updatedAt ? formatTopDateTime(updatedAt) : "갱신 대기 중";
   target.textContent = state.liveData?.failed ? `${label} · 갱신 실패` : label;
 }
@@ -911,13 +743,6 @@ function thermometerRowKey(kind, row) {
   return `${kind}:${row.rate}:${row.sub || ""}`;
 }
 
-function marketMeaning(riseNeedle, fallNeedle) {
-  if (fallNeedle.zone === "하락 위험 없음") {
-    return `저점 이후 ${riseNeedle.zone}에 위치하고, 전고점 대비 하락 압력은 낮은 상태입니다.`;
-  }
-  return `저점 기준으로는 ${riseNeedle.zone}, 전고점 기준으로는 ${fallNeedle.zone}에 동시에 위치합니다.`;
-}
-
 function renderMacroList() {
   const macros = [
     ["달러 실시간 환율", formatNumber(Number(state.macro.usdKrw), 2), state.macroMeta.usdKrw],
@@ -960,172 +785,6 @@ function translateFearGreed(rating) {
     "extreme greed": "극단적 탐욕",
   };
   return map[String(rating).toLowerCase()] || rating;
-}
-
-function renderLiveStatus() {
-  renderTopTimestamp();
-  const target = document.querySelector("[data-live-status]");
-  if (!target) return;
-  const updated = state.liveData.updatedAt
-    ? ` · 마지막 갱신 ${formatDateTime(state.liveData.updatedAt)}`
-    : "";
-  const errors = state.liveData.errors?.length
-    ? ` · 실패 ${state.liveData.errors.map((item) => item.key).join(", ")}`
-    : "";
-  target.innerHTML = `<strong>${state.liveData.status}</strong>${updated}${errors}`;
-}
-
-function renderYieldCycles() {
-  renderTopTimestamp();
-  const target = document.querySelector("[data-yield-cycles]");
-  if (!target) return;
-  const values = state.yieldCycles.values || {};
-  const entries = ["spread10y2y", "spread10y3m"]
-    .map((key) => values[key])
-    .filter(Boolean);
-  if (!entries.length) {
-    target.innerHTML = `<article class="yield-cycle-item"><h3>${state.yieldCycles.status}</h3></article>`;
-    return;
-  }
-  target.innerHTML = entries
-    .map((item) => {
-      const compare = item.comparison >= 0 ? `${item.comparison}개월 더 김` : `${Math.abs(item.comparison)}개월 더 짧음`;
-      return `
-        <article class="yield-cycle-item">
-          <h3>${item.label}</h3>
-          <dl>
-            <dt>역전 시작</dt>
-            <dd>${item.inversionStartDate}</dd>
-            <dt>양전일</dt>
-            <dd>${item.positiveTurnDate}</dd>
-            ${
-              item.latestCrossDate && item.latestCrossDate !== item.positiveTurnDate
-                ? `<dt>마지막 재양전</dt><dd>${item.latestCrossDate}</dd>`
-                : ""
-            }
-            <dt>역전 지속</dt>
-            <dd>${item.inversionMonths}개월</dd>
-            <dt>양전 후 현재</dt>
-            <dd>${item.positiveMonths}개월째</dd>
-            <dt>최근 값</dt>
-            <dd>${formatNumber(item.latestValue, 2)}%</dd>
-            <dd class="note">양전 후 기간이 역전 지속기간보다 ${compare}</dd>
-          </dl>
-        </article>
-      `;
-    })
-    .join("");
-}
-
-function renderCrisisTypes() {
-  document.querySelector("[data-crisis-types]").innerHTML = crisisTypes
-    .map(
-      (item) => `
-      <article class="crisis-item">
-        <h3>${item.title}</h3>
-        <p>예: ${item.example}</p>
-        <p>${item.body}</p>
-      </article>
-    `,
-    )
-    .join("");
-}
-
-function renderHistory() {
-  const tbody = document.querySelector("[data-history]");
-  const rows = historyRows.map((row, index) => {
-    const previous = historyRows[index - 1];
-    const next = historyRows[index + 1];
-    const period = previous ? row.year - previous.year : ".";
-    const fallMonths = row.lowDate ? monthDiff(row.highDate, row.lowDate) : "?";
-    const fallRate = row.lowValue ? formatSignedPercent((row.lowValue - row.highValue) / row.highValue) : "?";
-    const recoveryMonths = row.lowDate && next ? monthDiff(row.lowDate, next.highDate) : "?";
-    const recoveryRate = row.lowValue && next ? formatSignedPercent(next.highValue / row.lowValue) : "?";
-    return `
-      <tr>
-        <td>${period}</td>
-        <td>${row.year}</td>
-        <td>${row.crisis}</td>
-        <td>${formatDate(row.highDate)}</td>
-        <td>${formatNumber(row.highValue)}</td>
-        <td>${formatDate(row.lowDate)}</td>
-        <td>${formatNumber(row.lowValue)}</td>
-        <td>${fallMonths}</td>
-        <td>${fallRate}</td>
-        <td>${recoveryMonths}</td>
-        <td>${recoveryRate}</td>
-      </tr>
-    `;
-  });
-  tbody.innerHTML = rows.join("");
-  renderHistorySummary();
-}
-
-function renderHistorySummary() {
-  const complete = historyRows.filter((row, index) => row.lowDate && historyRows[index + 1]);
-  const fallMonths = complete.map((row) => monthDiff(row.highDate, row.lowDate));
-  const fallRates = complete.map((row) => (row.lowValue - row.highValue) / row.highValue);
-  const recoveryMonths = complete.map((row, index) => monthDiff(row.lowDate, historyRows[index + 1].highDate));
-  const recoveryRates = complete.map((row, index) => historyRows[index + 1].highValue / row.lowValue);
-  document.querySelector("[data-history-summary]").innerHTML = `
-    <tr>
-      <td colspan="7">최대</td>
-      <td>${Math.max(...fallMonths)}</td>
-      <td>${formatSignedPercent(Math.min(...fallRates))}</td>
-      <td>${Math.max(...recoveryMonths)}</td>
-      <td>${formatSignedPercent(Math.max(...recoveryRates))}</td>
-    </tr>
-    <tr>
-      <td colspan="7">최소</td>
-      <td>${Math.min(...fallMonths)}</td>
-      <td>${formatSignedPercent(Math.max(...fallRates))}</td>
-      <td>${Math.min(...recoveryMonths)}</td>
-      <td>${formatSignedPercent(Math.min(...recoveryRates))}</td>
-    </tr>
-  `;
-}
-
-function renderCurrentSituation() {
-  const market = state.markets.korea;
-  const items = [
-    ["전 고점", `${formatDate(market.highDate)} · ${formatNumber(market.highValue)}`],
-    ["오늘의 지수", `${formatDate(state.asOfDate)} · ${formatNumber(market.currentValue)}`],
-    ["하락 진행도", `${monthDiff(market.highDate, state.asOfDate)}개월`],
-    ["고점 대비", formatSignedPercent(calcHighReturn(market))],
-  ];
-  document.querySelector("[data-current-situation]").innerHTML = `
-    <p class="eyebrow">Current</p>
-    <h2>그래서 현재 상황은?</h2>
-    <div class="current-stats">
-      ${items
-        .map(
-          ([label, value]) => `
-          <div class="current-stat">
-            <span>${label}</span>
-            <strong>${value}</strong>
-          </div>
-        `,
-        )
-        .join("")}
-    </div>
-  `;
-}
-
-function buildComputedSnapshot() {
-  return {
-    markets: Object.fromEntries(
-      marketMeta.map((meta) => {
-        const market = state.markets[meta.key];
-        return [
-          meta.key,
-          {
-            lowReturn: calcLowReturn(market),
-            highReturn: calcHighReturn(market),
-          },
-        ];
-      }),
-    ),
-  };
 }
 
 function calcLowReturn(market) {
@@ -1267,10 +926,6 @@ function parseDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatDate(value) {
-  return value || "?";
-}
-
 function formatRate(value) {
   if (!Number.isFinite(value)) return "-";
   return `${Math.round(value * 100)}%`;
@@ -1302,15 +957,6 @@ function formatNumber(value, digits = 2) {
 function formatMaybeNumber(value) {
   if (Number.isFinite(Number(value))) return formatNumber(Number(value), 2);
   return value || "-";
-}
-
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
 }
 
 function formatTopDateTime(value) {

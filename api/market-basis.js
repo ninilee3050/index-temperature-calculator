@@ -12,7 +12,7 @@ export default async function handler(request, response) {
     });
     response.setHeader(
       "Cache-Control",
-      payload.ok && !payload.errors.length ? "s-maxage=21600, stale-while-revalidate=600" : "no-store",
+      payload.ok && !payload.errors.length ? "s-maxage=1800, stale-while-revalidate=300" : "no-store",
     );
     response.status(200).json(payload);
   } catch (error) {

@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getMacroData, getMarketBasisData, getYieldCycles } from "./lib/market-data.mjs";
+import { getMacroData, getMarketBasisData } from "./lib/market-data.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const basePort = Number(process.env.PORT || 4173);
@@ -29,6 +29,10 @@ const server = http.createServer(async (request, response) => {
       return;
     }
     if (url.pathname === "/api/auto-exit") {
+      if (request.method !== "POST") {
+        sendJson(response, 405, { ok: false, error: "Method not allowed" });
+        return;
+      }
       enableAutoExit();
       sendJson(response, 200, { ok: true, autoExit: true });
       return;
@@ -45,10 +49,6 @@ const server = http.createServer(async (request, response) => {
     if (url.pathname === "/api/market-basis") {
       const lowDates = { korea: url.searchParams.get("korea"), us: url.searchParams.get("us") };
       sendJson(response, 200, await getMarketBasisData({ lowDates }));
-      return;
-    }
-    if (url.pathname === "/api/yield-cycles") {
-      sendJson(response, 200, await getYieldCycles());
       return;
     }
     if (url.pathname === "/favicon.ico") {
@@ -72,7 +72,7 @@ console.log(`지수 구간 계산 앱: http://127.0.0.1:${port}/`);
 async function serveStatic(pathname, response) {
   const cleanPath = pathname === "/" ? "/index.html" : decodeURIComponent(pathname);
   const filePath = path.normalize(path.join(__dirname, cleanPath));
-  if (!filePath.startsWith(__dirname)) {
+  if (!filePath.startsWith(__dirname + path.sep)) {
     sendText(response, 403, "Forbidden");
     return;
   }
