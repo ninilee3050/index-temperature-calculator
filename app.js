@@ -70,7 +70,13 @@ const macroCharts = {
     digits: 0,
     suffix: "",
     ticks: [0, 25, 45, 55, 75, 100],
-    zones: ["극단적 공포", "공포", "중립", "탐욕", "극단적 탐욕"],
+    zones: [
+      { label: "극단적 공포", tone: "cold-strong" },
+      { label: "공포", tone: "cold" },
+      { label: "중립", tone: "neutral" },
+      { label: "탐욕", tone: "hot" },
+      { label: "극단적 탐욕", tone: "hot-strong" },
+    ],
   },
 };
 
@@ -1194,10 +1200,18 @@ function buildChartSvg(points, config, width, height) {
         <text class="chart-axis-text ${isBaseline ? "is-baseline" : ""}" x="${margin.left - 8}" y="${y}" text-anchor="end" dominant-baseline="middle">${formatNumber(tick, tickDigits)}${config.suffix}</text>`;
     })
     .join("");
+  // Zones are bands, not lines: tint each band and name it on the band, clear of the newest data.
+  const zoneBands = (config.zones || [])
+    .map((zone, index) => {
+      const top = toY(ticks[index + 1]);
+      const bandHeight = toY(ticks[index]) - top;
+      return `<rect class="chart-zone is-${zone.tone}" x="${margin.left}" y="${top.toFixed(1)}" width="${width - margin.left}" height="${bandHeight.toFixed(1)}" />`;
+    })
+    .join("");
   const zoneLabels = (config.zones || [])
     .map((zone, index) => {
       const y = ((toY(ticks[index]) + toY(ticks[index + 1])) / 2).toFixed(1);
-      return `<text class="chart-axis-text" x="${plotRight + 8}" y="${y}" dominant-baseline="middle">${zone}</text>`;
+      return `<text class="chart-axis-text is-zone-name" x="${plotRight + 8}" y="${y}" dominant-baseline="middle">${zone.label}</text>`;
     })
     .join("");
 
@@ -1247,6 +1261,7 @@ function buildChartSvg(points, config, width, height) {
 
   const svg = `
     <svg class="chart-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${config.label} ${points[0].date}부터 ${points.at(-1).date}까지의 추이">
+      ${zoneBands}
       ${monthLines}
       ${valueLines}
       ${zoneLabels}

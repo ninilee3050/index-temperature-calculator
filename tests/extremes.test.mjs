@@ -366,6 +366,10 @@ test("fear and greed chart draws the zone boundaries and names each zone", () =>
     assert.match(svg, new RegExp(`dominant-baseline="middle">${boundary}<`));
   }
   assert.equal(svg.match(/class="chart-grid is-zone"/g).length, 6);
+  assert.deepEqual(
+    [...svg.matchAll(/class="chart-zone is-([a-z-]+)"/g)].map((match) => match[1]),
+    ["cold-strong", "cold", "neutral", "hot", "hot-strong"],
+  );
   for (const zone of ["극단적 공포", "공포", "중립", "탐욕", "극단적 탐욕"]) {
     assert.match(svg, new RegExp(`>${zone}<`));
   }

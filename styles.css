@@ -1769,6 +1769,37 @@ html[data-theme="dark"] .range-zero-fall .zero-line-label {
   stroke: var(--grid-line-soft);
 }
 
+.chart-zone {
+  --zone-cold: #0a84ff;
+  --zone-hot: #ff453a;
+  fill: var(--muted);
+  opacity: 0.1;
+}
+
+.chart-zone.is-cold {
+  fill: var(--zone-cold);
+  opacity: 0.1;
+}
+
+.chart-zone.is-cold-strong {
+  fill: var(--zone-cold);
+  opacity: 0.22;
+}
+
+.chart-zone.is-hot {
+  fill: var(--zone-hot);
+  opacity: 0.1;
+}
+
+.chart-zone.is-hot-strong {
+  fill: var(--zone-hot);
+  opacity: 0.22;
+}
+
+.chart-axis-text.is-zone-name {
+  fill: var(--ink);
+}
+
 .chart-grid.is-zone {
   stroke: var(--muted);
   stroke-dasharray: 4 4;
