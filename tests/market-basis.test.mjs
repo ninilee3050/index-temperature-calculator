@@ -88,3 +88,50 @@ test("historical faint markers use the highest point after the V-bottom and lowe
     },
   );
 });
+
+test("breaking a confirmed V-bottom cancels it and keeps tracking the same crash", () => {
+  const rows = [
+    row("2019-12-31", 100, 95, 98),
+    row("2020-01-31", 100, 60, 65),
+    row("2020-02-28", 85, 64, 80),
+    row("2020-03-31", 90, 78, 88),
+    row("2021-01-29", 200, 150, 190),
+    row("2021-02-26", 190, 110, 120),
+    row("2021-03-31", 150, 118, 145),
+    row("2021-04-30", 160, 140, 150),
+    row("2021-05-31", 150, 105, 108),
+  ];
+
+  const confirmed = detectMajorVBottom(rows.slice(0, 8), { asOfDate: "2021-05-15" });
+  assert.equal(confirmed.highValue, 200);
+  assert.equal(confirmed.lowValue, 110);
+
+  const broken = detectMajorVBottom(rows, { asOfDate: "2021-06-15" });
+  assert.equal(broken.highValue, 100);
+  assert.equal(broken.lowValue, 60);
+
+  const reconfirmed = detectMajorVBottom(
+    [...rows, row("2021-06-30", 125, 104, 122), row("2021-07-30", 135, 120, 130), row("2021-08-31", 140, 125, 135)],
+    { asOfDate: "2021-09-15" },
+  );
+  assert.equal(reconfirmed.highDate, "2021-01-29");
+  assert.equal(reconfirmed.highValue, 200);
+  assert.equal(reconfirmed.lowDate, "2021-06-30");
+  assert.equal(reconfirmed.lowValue, 104);
+});
+
+test("a dip that holds above the confirmed V-bottom keeps the basis", () => {
+  const result = detectMajorVBottom(
+    [
+      row("2021-01-29", 200, 150, 190),
+      row("2021-02-26", 190, 110, 120),
+      row("2021-03-31", 150, 118, 145),
+      row("2021-04-30", 160, 140, 150),
+      row("2021-05-31", 150, 111, 120),
+    ],
+    { asOfDate: "2021-06-15" },
+  );
+
+  assert.equal(result.highValue, 200);
+  assert.equal(result.lowValue, 110);
+});
