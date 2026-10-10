@@ -152,3 +152,28 @@ test("a low earlier in the peak's own month is never used as the trough", () => 
   assert.equal(result.lowValue, 120);
   assert.ok(result.lowDate > result.highDate);
 });
+
+test("a relapse from a lower recovery high that undercuts the low stays one crash", () => {
+  const rows = [
+    row("2021-01-29", 200, 150, 190),
+    row("2021-02-26", 190, 100, 110),
+    row("2021-03-31", 150, 105, 145),
+    row("2021-04-30", 180, 140, 175),
+    row("2021-05-31", 170, 120, 125),
+    row("2021-06-30", 125, 90, 95),
+    row("2021-07-30", 115, 92, 112),
+    row("2021-08-31", 125, 108, 120),
+  ];
+
+  const relapsing = detectMajorVBottom(rows.slice(0, 5), { asOfDate: "2021-06-15" });
+  assert.equal(relapsing.lowValue, 100);
+
+  const undercut = detectMajorVBottom(rows.slice(0, 6), { asOfDate: "2021-07-15" });
+  assert.equal(undercut, null);
+
+  const result = detectMajorVBottom(rows, { asOfDate: "2021-09-15" });
+  assert.equal(result.highDate, "2021-01-29");
+  assert.equal(result.highValue, 200);
+  assert.equal(result.lowDate, "2021-06-30");
+  assert.equal(result.lowValue, 90);
+});
