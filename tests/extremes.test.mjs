@@ -101,16 +101,16 @@ test("market header shows the exact index point without crowding the needle", ()
   assert.match(result.rows, /data-action="show-needle-info"/);
   assert.match(
     result.rows,
-    /상승 기준 · 전저점 2,134\.77 \(2022-09-30\) → 현재 6,023\.66 \(2026-07-28\) · 45개월 · 182\.17%/,
+    /상승 기준 · 전저점 2,134\.77 \(2022-09-30\) → 현재 6,023\.66 \(2026-07-28\) · 45개월 28일 · 182\.17%/,
   );
   assert.match(
     result.rows,
-    /하락 기준 · 최근 최고점 9,385\.59 \(2026-06-19\) → 현재 6,023\.66 \(2026-07-28\) · 1개월 · -35\.82%/,
+    /하락 기준 · 최근 최고점 9,385\.59 \(2026-06-19\) → 현재 6,023\.66 \(2026-07-28\) · 1개월 9일 · -35\.82%/,
   );
   assert.ok(Math.abs(result.drawdown - (6023.66 / 9385.59 - 1)) < 1e-12);
   assert.ok(Math.abs(result.minusThirtyPoint - 6569.913) < 1e-9);
   assert.match(result.rows, /data-action="show-peak-info"/);
-  assert.match(result.rows, /최고 9,385\.59 · 2026-06-19 · 1개월 전/);
+  assert.match(result.rows, /최고 9,385\.59 · 2026-06-19 · 1개월 9일 전/);
 });
 
 test("changing a basis keeps the recorded peak point and date", () => {
@@ -295,4 +295,20 @@ test("each market header shows its own quote date", () => {
 
   assert.match(cards[0], /<small>2026-10-08 기준<\/small>/);
   assert.match(cards[1], /<small>2026-10-09 기준<\/small>/);
+});
+
+test("elapsed time counts leftover days and switches to days under a month", () => {
+  const result = runScenario(`() => ({
+    days: elapsedSince("2026-10-06", "2026-10-09"),
+    sameDay: elapsedSince("2026-10-09", "2026-10-09"),
+    exact: elapsedSince("2026-07-09", "2026-10-09"),
+    mixed: elapsedSince("2026-06-19", "2026-10-08"),
+    monthEnd: elapsedSince("2026-01-31", "2026-03-01"),
+  })`);
+
+  assert.deepEqual(result.days, { short: "3일", full: "3일" });
+  assert.deepEqual(result.sameDay, { short: "0일", full: "0일" });
+  assert.deepEqual(result.exact, { short: "3개월", full: "3개월" });
+  assert.deepEqual(result.mixed, { short: "3개월", full: "3개월 19일" });
+  assert.deepEqual(result.monthEnd, { short: "1개월", full: "1개월 1일" });
 });

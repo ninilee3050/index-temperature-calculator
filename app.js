@@ -541,14 +541,14 @@ function buildThermometerRows(market, riseNeedleKey, fallNeedleKey, risePeakNeed
   const risePeakReturn = getRisePeakReturn(market);
   const fallPeakReturn = getFallPeakReturn(market);
   const asOfDate = marketAsOfDate(market);
-  const riseMonths = monthDiff(market.lowDate, asOfDate);
+  const riseElapsed = elapsedSince(market.lowDate, asOfDate);
   const fallAnchorDate = getFallAnchorDate(market);
   const fallAnchorValue = getFallAnchorValue(market);
-  const fallMonths = monthDiff(fallAnchorDate, asOfDate);
-  const riseLabel = `${riseMonths}개월 · ${truncatePercent(lowReturn)}%`;
-  const fallLabel = `${fallMonths}개월 · ${truncatePercent(Math.min(highReturn, 0))}%`;
-  const riseTitle = `상승 기준 · 전저점 ${formatNumber(market.lowValue)} (${market.lowDate}) → 현재 ${formatNumber(market.currentValue)} (${asOfDate}) · ${riseMonths}개월 · ${formatSignedPercent(lowReturn)}`;
-  const fallTitle = `하락 기준 · 최근 최고점 ${formatNumber(fallAnchorValue)} (${fallAnchorDate}) → 현재 ${formatNumber(market.currentValue)} (${asOfDate}) · ${fallMonths}개월 · ${formatSignedPercent(Math.min(highReturn, 0))}`;
+  const fallElapsed = elapsedSince(fallAnchorDate, asOfDate);
+  const riseLabel = `${riseElapsed.short} · ${truncatePercent(lowReturn)}%`;
+  const fallLabel = `${fallElapsed.short} · ${truncatePercent(Math.min(highReturn, 0))}%`;
+  const riseTitle = `상승 기준 · 전저점 ${formatNumber(market.lowValue)} (${market.lowDate}) → 현재 ${formatNumber(market.currentValue)} (${asOfDate}) · ${riseElapsed.full} · ${formatSignedPercent(lowReturn)}`;
+  const fallTitle = `하락 기준 · 최근 최고점 ${formatNumber(fallAnchorValue)} (${fallAnchorDate}) → 현재 ${formatNumber(market.currentValue)} (${asOfDate}) · ${fallElapsed.full} · ${formatSignedPercent(Math.min(highReturn, 0))}`;
   const risePeakLabel = `최고 ${truncatePercent(risePeakReturn)}%`;
   const fallPeakLabel = `최저 ${truncatePercent(fallPeakReturn)}%`;
   const risePeakTitle = peakTitle("최고", market.risePeakDate, market.risePeakValue, asOfDate);
@@ -913,11 +913,24 @@ function monthDiff(start, end) {
   return Math.max(months, 0);
 }
 
+// Elapsed time as whole months plus leftover days: `short` for the needle, `full` for details.
+function elapsedSince(start, end) {
+  const a = parseDate(start);
+  const b = parseDate(end);
+  if (!a || !b) return { short: "?개월", full: "?개월" };
+  const months = monthDiff(start, end);
+  const targetMonth = a.getMonth() + months;
+  const lastDay = new Date(a.getFullYear(), targetMonth + 1, 0).getDate();
+  const anchor = new Date(a.getFullYear(), targetMonth, Math.min(a.getDate(), lastDay));
+  const days = Math.max(Math.round((b.getTime() - anchor.getTime()) / 86400000), 0);
+  if (months === 0) return { short: `${days}일`, full: `${days}일` };
+  return { short: `${months}개월`, full: days ? `${months}개월 ${days}일` : `${months}개월` };
+}
+
 function peakTitle(label, date, value, asOfDate = state.asOfDate) {
   if (!date) return `${label} 기록일 없음`;
-  const months = monthDiff(date, asOfDate);
   const point = Number.isFinite(Number(value)) ? `${formatNumber(value)} · ` : "";
-  return `${label} ${point}${date} · ${months}개월 전`;
+  return `${label} ${point}${date} · ${elapsedSince(date, asOfDate).full} 전`;
 }
 
 function parseDate(value) {
